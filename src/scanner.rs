@@ -3,10 +3,11 @@ use crate::token::TokenType::{
     LEFTBRACE, LEFTPAREN, LESS, LESSEQUAL, MINUS, NUMBER, PLUS, RIGHTBRACE, RIGHTPAREN, SEMICOLON,
     SLASH, STAR, STRING,
 };
-use crate::token::{Token, TokenType, KEYWORDS};
+use crate::token::{Token, TokenType, KEYWORDS, Value};
 use anyhow::{anyhow, Result};
 
 use std::any::Any;
+use std::rc::Rc;
 use std::str::FromStr;
 
 pub fn run(line: String) -> Result<Vec<Token>> {
@@ -111,13 +112,13 @@ impl Scanner {
             }
             '"' => {
                 let value = self.extract_string()?;
-                let _ = self.add_token(STRING, Some(Box::new(value)));
+                let _ = self.add_token(STRING, Some(Rc::new(value)));
                 Ok(())
             }
             _ => {
                 if Self::is_digit(current_char) {
                     let value = self.extract_number()?;
-                    let _ = self.add_token(NUMBER, Some(Box::new(value)));
+                    let _ = self.add_token(NUMBER, Some(Rc::new(value)));
                     Ok(())
                 } else if Self::is_alpha(current_char) {
                     let value = self.extract_identifier()?;
@@ -235,7 +236,7 @@ impl Scanner {
         }
     }
 
-    fn add_token(&mut self, token_type: TokenType, value: Option<Box<dyn Any>>) -> Result<()> {
+    fn add_token(&mut self, token_type: TokenType, value: Option<Rc<dyn Value>>) -> Result<()> {
         let lexeme = &self.source.as_bytes()[self.start as usize..self.current as usize];
         let lexeme = std::str::from_utf8(lexeme)?.to_string();
         let token = Token::new(token_type, lexeme, value, self.line);

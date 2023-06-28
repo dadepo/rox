@@ -1,6 +1,10 @@
 use lazy_static::lazy_static;
 use std::any::Any;
 use std::collections::HashMap;
+use std::fmt;
+use std::rc::Rc;
+use downcast::downcast;
+use dyn_clone::{clone_trait_object, DynClone};
 
 lazy_static! {
     pub static ref KEYWORDS: HashMap<&'static str, TokenType> = {
@@ -25,7 +29,7 @@ lazy_static! {
     };
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Copy)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum TokenType {
     // Single character token
@@ -78,11 +82,24 @@ pub enum TokenType {
     EOF,
 }
 
-#[derive(Debug)]
+pub trait Value: DynClone + Any {}
+clone_trait_object!(Value);
+// downcast!(dyn Value);
+
+impl<T: Clone + Any> Value for T {}
+
+impl fmt::Debug for dyn Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Value").finish_non_exhaustive()
+    }
+}
+
+
+#[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
-    pub value: Option<Box<dyn Any>>,
+    pub value: Option<Rc<dyn Value>>,
     pub line: u32,
 }
 
@@ -90,7 +107,7 @@ impl Token {
     pub fn new(
         token_type: TokenType,
         lexeme: String,
-        value: Option<Box<dyn Any>>,
+        value: Option<Rc<dyn Value>>,
         line: u32,
     ) -> Self {
         Token {
