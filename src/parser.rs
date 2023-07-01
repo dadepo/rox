@@ -1,4 +1,4 @@
-use eyre::eyre;
+use anyhow::anyhow;
 use crate::expr::Expr;
 use crate::token::{Token, TokenType};
 use crate::token::TokenType::{BANG, BANGEQUAL, EOF, EQUALEQUAL, FALSE, GREATER, GREATEREQUAL, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL, NUMBER, PLUS, RIGHTPAREN, SLASH, STAR, STRING, TRUE};
@@ -119,7 +119,7 @@ impl Parser {
             return Expr::Literal(Box::new(None::<String>))
         }
         if self.match_token(vec![NUMBER, STRING]) {
-            return match self.previous().value {
+            return match self.previous().literal {
                 Some(previous) => Expr::Literal(Box::new(previous)),
                 None => Expr::Literal(Box::new(None::<String>))
             }
@@ -135,11 +135,11 @@ impl Parser {
         Expr::Literal(Box::new(None::<String>))
     }
 
-    fn consume(&mut self, token_type: TokenType) -> eyre::Result<Token> {
+    fn consume(&mut self, token_type: TokenType) -> anyhow::Result<Token> {
         if self.check(token_type) {
             Ok(self.get_current_and_advance_cursor())
         } else {
-            Err(eyre!("error"))
+            Err(anyhow!("error"))
         }
     }
 

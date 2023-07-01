@@ -1,10 +1,7 @@
-use lazy_static::lazy_static;
-use std::any::Any;
 use std::collections::HashMap;
-use std::fmt;
-use std::rc::Rc;
-use downcast::downcast;
-use dyn_clone::{clone_trait_object, DynClone};
+use std::fmt::Display;
+
+use lazy_static::lazy_static;
 
 lazy_static! {
     pub static ref KEYWORDS: HashMap<&'static str, TokenType> = {
@@ -82,24 +79,11 @@ pub enum TokenType {
     EOF,
 }
 
-pub trait Value: DynClone + Any {}
-clone_trait_object!(Value);
-// downcast!(dyn Value);
-
-impl<T: Clone + Any> Value for T {}
-
-impl fmt::Debug for dyn Value {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Value").finish_non_exhaustive()
-    }
-}
-
-
 #[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub lexeme: String,
-    pub value: Option<Rc<dyn Value>>,
+    pub literal: Option<DataType>,
     pub line: u32,
 }
 
@@ -107,14 +91,34 @@ impl Token {
     pub fn new(
         token_type: TokenType,
         lexeme: String,
-        value: Option<Rc<dyn Value>>,
+        literal: Option<DataType>,
         line: u32,
     ) -> Self {
         Token {
             token_type,
             lexeme,
-            value,
+            literal,
             line,
+        }
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub enum DataType {
+    String(String),
+    Number(f64),
+    Bool(bool),
+    Nil,
+}
+
+impl Display for DataType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DataType::String(s) => write!(f, "{s}"),
+            DataType::Number(n) => write!(f, "{n}"),
+            DataType::Bool(b) => write!(f, "{b}"),
+            DataType::Nil => write!(f, "NIL"),
         }
     }
 }
