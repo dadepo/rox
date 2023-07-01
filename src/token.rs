@@ -103,7 +103,6 @@ impl Token {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub enum DataType {
     String(String),

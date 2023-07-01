@@ -2,12 +2,12 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, Result};
 
-use crate::token::{DataType, KEYWORDS, Token, TokenType};
 use crate::token::TokenType::{
     BANG, BANGEQUAL, COMMA, DOT, EOF, EQUAL, EQUALEQUAL, GREATER, GREATEREQUAL, IDENTIFIER,
     LEFTBRACE, LEFTPAREN, LESS, LESSEQUAL, MINUS, NUMBER, PLUS, RIGHTBRACE, RIGHTPAREN, SEMICOLON,
     SLASH, STAR, STRING,
 };
+use crate::token::{DataType, Token, TokenType, KEYWORDS};
 
 pub fn run(line: String) -> Result<Vec<Token>> {
     let scanner = Scanner::new(line);

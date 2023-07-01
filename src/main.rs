@@ -1,14 +1,16 @@
-mod scanner;
-mod token;
-mod predicate;
 mod expr;
 mod parser;
+mod predicate;
+mod scanner;
+mod token;
+mod visitor;
 
+use crate::parser::Parser;
 use crate::scanner::run;
+use crate::visitor::AstPrinter;
 use rustyline::error::ReadlineError;
 use rustyline::{DefaultEditor, Result};
 use std::{env, process};
-use crate::parser::Parser;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect::<Vec<String>>()[1..].to_vec();
@@ -31,11 +33,11 @@ fn main() -> Result<()> {
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_str())?;
-                println!("Line: {}", line);
                 let tokens = run(line).unwrap();
                 let mut parser = Parser::new(tokens);
                 let ast = parser.parse().unwrap();
-                println!("Tokens: {:?}", ast);
+                let mut ast_printer = AstPrinter::new();
+                println!("Tokens: {:?}", ast_printer.print(ast));
             }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");

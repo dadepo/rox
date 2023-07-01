@@ -1,14 +1,17 @@
-use std::rc::Rc;
+use crate::expr::{BinaryExpr, Expr, GroupingExpr, LiteralExpr, UnaryExpr};
+use crate::token::TokenType::{
+    BANG, BANGEQUAL, EOF, EQUALEQUAL, FALSE, GREATER, GREATEREQUAL, LEFTPAREN, LESS, LESSEQUAL,
+    MINUS, NIL, NUMBER, PLUS, RIGHTPAREN, SLASH, STAR, STRING, TRUE,
+};
+use crate::token::{DataType, Token, TokenType};
 use anyhow::anyhow;
 use anyhow::Result;
-use crate::expr::{BinaryExpr, Expr, GroupingExpr, LiteralExpr, UnaryExpr};
-use crate::token::{DataType, Token, TokenType};
-use crate::token::TokenType::{BANG, BANGEQUAL, EOF, EQUALEQUAL, FALSE, GREATER, GREATEREQUAL, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL, NUMBER, PLUS, RIGHTPAREN, SLASH, STAR, STRING, TRUE};
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct Parser {
     tokens: Vec<Token>,
-    current: u32
+    current: u32,
 }
 
 /**
@@ -25,10 +28,7 @@ pub struct Parser {
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        Parser {
-            tokens,
-            current: 0
-        }
+        Parser { tokens, current: 0 }
     }
     pub fn parse(&mut self) -> Result<Rc<dyn Expr>> {
         self.expression()
@@ -73,7 +73,7 @@ impl Parser {
         let mut left = self.factor()?;
         while self.match_token(vec![MINUS, PLUS]) {
             let operator = self.previous();
-            let right = self.term()?;
+            let right = self.factor()?;
             left = Rc::new(BinaryExpr {
                 left,
                 operator,
@@ -88,7 +88,7 @@ impl Parser {
 
         while self.match_token(vec![SLASH, STAR]) {
             let operator = self.previous();
-            let right = self.term()?;
+            let right = self.unary()?;
             left = Rc::new(BinaryExpr {
                 left,
                 operator,
@@ -102,31 +102,39 @@ impl Parser {
     pub fn unary(&mut self) -> Result<Rc<dyn Expr>> {
         if self.match_token(vec![BANG, MINUS]) {
             let operator = self.previous();
-            let right = self.term()?;
-            return Ok(Rc::new(UnaryExpr { operator, right }))
+            let right = self.unary()?;
+            return Ok(Rc::new(UnaryExpr { operator, right }));
         }
 
         self.primary()
     }
 
-    pub fn primary(&mut self) -> anyhow::Result<Rc<dyn Expr>> {
+    pub fn primary(&mut self) -> Result<Rc<dyn Expr>> {
         if self.match_token(vec![TRUE]) {
-            return Ok(Rc::new(LiteralExpr { value: Some(DataType::Bool(true)) }))
+            return Ok(Rc::new(LiteralExpr {
+                value: Some(DataType::Bool(true)),
+            }));
         }
         if self.match_token(vec![FALSE]) {
-            return Ok(Rc::new(LiteralExpr { value: Some(DataType::Bool(false)) }))
+            return Ok(Rc::new(LiteralExpr {
+                value: Some(DataType::Bool(false)),
+            }));
         }
         if self.match_token(vec![NIL]) {
-            return Ok(Rc::new(LiteralExpr { value: Some(DataType::Nil) }))
+            return Ok(Rc::new(LiteralExpr {
+                value: Some(DataType::Nil),
+            }));
         }
         if self.match_token(vec![NUMBER, STRING]) {
-            return Ok(Rc::new(LiteralExpr { value: self.previous().literal}))
+            return Ok(Rc::new(LiteralExpr {
+                value: self.previous().literal,
+            }));
         }
 
         if self.match_token(vec![LEFTPAREN]) {
             let expression = self.expression()?;
             if self.consume(RIGHTPAREN).is_ok() {
-                return Ok(Rc::new(GroupingExpr { expression}))
+                return Ok(Rc::new(GroupingExpr { expression }));
             }
         }
 
@@ -145,7 +153,7 @@ impl Parser {
         for token in token_types {
             if self.check(token) {
                 self.get_current_and_advance_cursor();
-                return true
+                return true;
             }
         }
         false
@@ -164,7 +172,7 @@ impl Parser {
         } else {
             match self.peek() {
                 Some(next) => next.token_type == token_type,
-                None => false
+                None => false,
             }
         }
     }
@@ -172,17 +180,18 @@ impl Parser {
     fn is_at_end(&self) -> bool {
         match self.peek() {
             Some(end) => end.token_type == EOF,
-            None => true
+            None => true,
         }
     }
 
     fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.current  as usize)
+        self.tokens.get(self.current as usize)
     }
 
     fn previous(&mut self) -> Token {
-        self.tokens.remove((self.current - 1) as usize)
+        self.tokens
+            .get((self.current - 1) as usize)
+            .unwrap()
+            .to_owned()
     }
 }
-
-
