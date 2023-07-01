@@ -34,7 +34,7 @@ fn main() -> Result<()> {
                 println!("Line: {}", line);
                 let tokens = run(line).unwrap();
                 let mut parser = Parser::new(tokens);
-                let ast = parser.parse();
+                let ast = parser.parse().unwrap();
                 println!("Tokens: {:?}", ast);
             }
             Err(ReadlineError::Interrupted) => {

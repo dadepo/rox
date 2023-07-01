@@ -1,6 +1,8 @@
+use std::rc::Rc;
 use anyhow::anyhow;
-use crate::expr::Expr;
-use crate::token::{Token, TokenType};
+use anyhow::Result;
+use crate::expr::{BinaryExpr, Expr, GroupingExpr, LiteralExpr, UnaryExpr};
+use crate::token::{DataType, Token, TokenType};
 use crate::token::TokenType::{BANG, BANGEQUAL, EOF, EQUALEQUAL, FALSE, GREATER, GREATEREQUAL, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL, NUMBER, PLUS, RIGHTPAREN, SLASH, STAR, STRING, TRUE};
 
 #[derive(Default)]
@@ -28,111 +30,107 @@ impl Parser {
             current: 0
         }
     }
-    pub fn parse(&mut self) -> Expr {
+    pub fn parse(&mut self) -> Result<Rc<dyn Expr>> {
         self.expression()
     }
     // expression → equality
-    pub fn expression(&mut self) -> Expr {
+    pub fn expression(&mut self) -> Result<Rc<dyn Expr>> {
         self.equality()
     }
 
     // equality → comparison ( ( "!=" | "==" ) comparison )
-    pub fn equality(&mut self) -> Expr {
-        let mut expr = self.comparison();
+    pub fn equality(&mut self) -> Result<Rc<dyn Expr>> {
+        let mut left = self.comparison()?;
 
         while self.match_token(vec![BANGEQUAL, EQUALEQUAL]) {
-            let previous = self.previous();
-            let right = self.comparison();
-            expr = Expr::Binary(
-                Box::new(expr),
-                previous.clone(),
-                Box::new(right)
-            )
-
+            let operator = self.previous();
+            let right = self.comparison()?;
+            left = Rc::new(BinaryExpr {
+                left,
+                operator,
+                right,
+            });
         }
 
-        expr
+        Ok(left)
     }
 
-    pub fn comparison(&mut self) -> Expr {
-        let mut expr = self.term();
+    pub fn comparison(&mut self) -> Result<Rc<dyn Expr>> {
+        let mut left = self.term()?;
         while self.match_token(vec![GREATER, GREATEREQUAL, LESS, LESSEQUAL]) {
-            let previous = self.previous();
-            let right = self.term();
-            expr = Expr::Binary(
-                Box::new(expr),
-                previous.clone(),
-                Box::new(right)
-            );
+            let operator = self.previous();
+            let right = self.term()?;
+            left = Rc::new(BinaryExpr {
+                left,
+                operator,
+                right,
+            });
         }
-        expr
+        Ok(left)
     }
 
-    pub fn term(&mut self) -> Expr {
-        let mut expr = self.factor();
+    pub fn term(&mut self) -> Result<Rc<dyn Expr>> {
+        let mut left = self.factor()?;
         while self.match_token(vec![MINUS, PLUS]) {
-            let previous = self.previous();
-            let right = self.term();
-            expr = Expr::Binary(
-                Box::new(expr),
-                previous.clone(),
-                Box::new(right)
-            );
+            let operator = self.previous();
+            let right = self.term()?;
+            left = Rc::new(BinaryExpr {
+                left,
+                operator,
+                right,
+            });
         }
-        expr
+        Ok(left)
     }
 
-    pub fn factor(&mut self) -> Expr {
-        let mut expr = self.unary();
+    pub fn factor(&mut self) -> Result<Rc<dyn Expr>> {
+        let mut left = self.unary()?;
 
         while self.match_token(vec![SLASH, STAR]) {
-            let previous = self.previous();
-            let right = self.term();
-            expr = Expr::Binary(
-                Box::new(expr),
-                previous.clone(),
-                Box::new(right)
-            );
+            let operator = self.previous();
+            let right = self.term()?;
+            left = Rc::new(BinaryExpr {
+                left,
+                operator,
+                right,
+            });
         }
 
-        expr
+        Ok(left)
     }
 
-    pub fn unary(&mut self) -> Expr {
+    pub fn unary(&mut self) -> Result<Rc<dyn Expr>> {
         if self.match_token(vec![BANG, MINUS]) {
             let operator = self.previous();
-            let right = self.term();
-           return  Expr::Unary(operator.clone(), Box::new(right))
+            let right = self.term()?;
+            return Ok(Rc::new(UnaryExpr { operator, right }))
         }
 
         self.primary()
     }
 
-    pub fn primary(&mut self) -> Expr {
+    pub fn primary(&mut self) -> anyhow::Result<Rc<dyn Expr>> {
         if self.match_token(vec![TRUE]) {
-            return Expr::Literal(Box::new(true))
+            return Ok(Rc::new(LiteralExpr { value: Some(DataType::Bool(true)) }))
         }
         if self.match_token(vec![FALSE]) {
-            return Expr::Literal(Box::new(true))
+            return Ok(Rc::new(LiteralExpr { value: Some(DataType::Bool(false)) }))
         }
         if self.match_token(vec![NIL]) {
-            return Expr::Literal(Box::new(None::<String>))
+            return Ok(Rc::new(LiteralExpr { value: Some(DataType::Nil) }))
         }
         if self.match_token(vec![NUMBER, STRING]) {
-            return match self.previous().literal {
-                Some(previous) => Expr::Literal(Box::new(previous)),
-                None => Expr::Literal(Box::new(None::<String>))
-            }
+            return Ok(Rc::new(LiteralExpr { value: self.previous().literal}))
         }
 
         if self.match_token(vec![LEFTPAREN]) {
-            let expr = self.expression();
+            let expression = self.expression()?;
             if self.consume(RIGHTPAREN).is_ok() {
-                return Expr::Grouping(Box::new(expr))
+                return Ok(Rc::new(GroupingExpr { expression}))
             }
         }
 
-        Expr::Literal(Box::new(None::<String>))
+        Err(anyhow!("Unknown token"))
     }
 
     fn consume(&mut self, token_type: TokenType) -> anyhow::Result<Token> {
@@ -155,7 +153,7 @@ impl Parser {
 
     fn get_current_and_advance_cursor(&mut self) -> Token {
         if !self.is_at_end() {
-            self.current = self.current + 1;
+            self.current += 1;
         }
         self.previous()
     }
