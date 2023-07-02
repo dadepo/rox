@@ -19,7 +19,7 @@ pub struct LiteralExpr {
 }
 impl Expr for LiteralExpr {
     fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
-        visitor.visit_literal_expr(self)
+        visitor.visit_literal_expr(self).unwrap()
     }
 }
 
@@ -29,7 +29,7 @@ pub struct UnaryExpr {
 }
 impl Expr for UnaryExpr {
     fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
-        visitor.visit_unary_expr(self)
+        visitor.visit_unary_expr(self).unwrap()
     }
 }
 
@@ -40,7 +40,7 @@ pub struct BinaryExpr {
 }
 impl Expr for BinaryExpr {
     fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
-        visitor.visit_binary_expr(self)
+        visitor.visit_binary_expr(self).unwrap()
     }
 }
 
@@ -49,6 +49,6 @@ pub struct GroupingExpr {
 }
 impl Expr for GroupingExpr {
     fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
-        visitor.visit_grouping_expr(self)
+        visitor.visit_grouping_expr(self).unwrap()
     }
 }

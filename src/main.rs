@@ -7,10 +7,11 @@ mod visitor;
 
 use crate::parser::Parser;
 use crate::scanner::run;
-use crate::visitor::AstPrinter;
+use crate::visitor::{AstPrinter, Interpreter};
 use rustyline::error::ReadlineError;
 use rustyline::{DefaultEditor, Result};
 use std::{env, process};
+use std::rc::Rc;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect::<Vec<String>>()[1..].to_vec();
@@ -37,7 +38,10 @@ fn main() -> Result<()> {
                 let mut parser = Parser::new(tokens);
                 let ast = parser.parse().unwrap();
                 let mut ast_printer = AstPrinter::new();
-                println!("Tokens: {:?}", ast_printer.print(ast));
+
+                let mut interpreter = Interpreter::new();
+                println!("Tokens: {:?}", ast_printer.print(Rc::clone(&ast)));
+                println!("Evaluated: {:?}", interpreter.evaluate(ast));
             }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
