@@ -1,20 +1,23 @@
-use crate::expr::{BinaryExpr, Expr, GroupingExpr, LiteralExpr, UnaryExpr};
+use crate::expr::{BinaryExpr, Expr, GroupingExpr, LiteralExpr, UnaryExpr, VarExpr};
 use crate::token::{DataType, TokenType};
 use std::rc::Rc;
 use anyhow::Result;
 use anyhow::anyhow;
-use crate::stmt::{ExprStmt, PrintStmt, Stmt};
+use crate::environment::Environment;
+use crate::stmt::{ExprStmt, PrintStmt, Stmt, VarStmt};
 
 pub trait Visitor {
     fn visit_literal_expr(&mut self, expr: &LiteralExpr) -> Result<DataType>;
     fn visit_unary_expr(&mut self, expr: &UnaryExpr) -> Result<DataType>;
     fn visit_binary_expr(&mut self, expr: &BinaryExpr) -> Result<DataType>;
     fn visit_grouping_expr(&mut self, expr: &GroupingExpr) -> Result<DataType>;
+    fn visit_var_expr(&mut self, expr: &VarExpr) -> Result<DataType>;
 }
 
 pub trait StmtVisitor {
     fn visit_print_statement(&mut self, stmt: &PrintStmt) -> Result<()>;
     fn visit_expr_statement(&mut self, stmt: &ExprStmt) -> Result<()>;
+    fn visit_var_statement(&mut self, stmt: &VarStmt) -> Result<()>;
 }
 
 pub struct AstPrinter {}
@@ -78,13 +81,19 @@ impl Visitor for AstPrinter {
     fn visit_grouping_expr(&mut self, expr: &GroupingExpr) -> Result<DataType> {
         Ok(self.parenthesize("group", vec![expr.expression.as_ref()]))
     }
+
+    fn visit_var_expr(&mut self, expr: &VarExpr) -> Result<DataType> {
+        todo!()
+    }
 }
 
-pub struct Interpreter {}
+pub struct Interpreter {
+    pub environment: Environment
+}
 
 impl Interpreter {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(environment: Environment) -> Self {
+        Self { environment }
     }
 
     pub fn interpret(&mut self, statements: Vec<Rc<dyn Stmt>>) -> Result<()> {
@@ -261,6 +270,10 @@ impl Visitor for Interpreter {
     fn visit_grouping_expr(&mut self, expr: &GroupingExpr) -> Result<DataType> {
         Ok(self.evaluate(Rc::clone(&expr.expression)))
     }
+
+    fn visit_var_expr(&mut self, expr: &VarExpr) -> Result<DataType> {
+        self.environment.get(&expr.var_name.lexeme).ok_or(anyhow!("var does not exist"))
+    }
 }
 
 impl StmtVisitor for Interpreter {
@@ -272,6 +285,19 @@ impl StmtVisitor for Interpreter {
 
     fn visit_expr_statement(&mut self, stmt: &ExprStmt) -> Result<()> {
         self.evaluate(Rc::clone(&stmt.expression));
+        Ok(())
+    }
+
+    fn visit_var_statement(&mut self, stmt: &VarStmt) -> Result<()> {
+        match stmt.var_value.as_ref() {
+            None => {
+                self.environment.define(stmt.var_name.lexeme.clone(), None)
+            }
+            Some(stmt_line) => {
+                let value = self.evaluate(stmt_line.clone());
+                self.environment.define(stmt.var_name.lexeme.clone(), Some(value))
+            }
+        }
         Ok(())
     }
 }

@@ -1,10 +1,10 @@
-use crate::expr::{BinaryExpr, Expr, GroupingExpr, LiteralExpr, UnaryExpr};
-use crate::token::TokenType::{BANG, BANGEQUAL, EOF, EQUALEQUAL, FALSE, GREATER, GREATEREQUAL, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL, NUMBER, PLUS, PRINT, RIGHTPAREN, SEMICOLON, SLASH, STAR, STRING, TRUE};
+use crate::expr::{BinaryExpr, Expr, GroupingExpr, LiteralExpr, UnaryExpr, VarExpr};
+use crate::token::TokenType::{BANG, BANGEQUAL, EOF, EQUALEQUAL, FALSE, GREATER, GREATEREQUAL, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL, NUMBER, PLUS, PRINT, RIGHTPAREN, SEMICOLON, SLASH, STAR, STRING, TRUE, CLASS, FUN, VAR, FOR, IF, WHILE, RETURN, IDENTIFIER, EQUAL};
 use crate::token::{DataType, Token, TokenType};
 use anyhow::anyhow;
 use anyhow::Result;
 use std::rc::Rc;
-use crate::stmt::{ExprStmt, PrintStmt, Stmt};
+use crate::stmt::{ExprStmt, PrintStmt, Stmt, VarStmt};
 
 #[derive(Default)]
 pub struct Parser {
@@ -32,10 +32,42 @@ impl Parser {
     pub fn parse(&mut self) -> Result<Vec<Rc<dyn Stmt>>> {
         let mut statements = vec![];
         while !self.is_at_end() {
-            statements.push(self.statement()?)
+            statements.push(self.declaration()?)
         }
 
         Ok(statements)
+    }
+
+    pub fn declaration(&mut self) -> Result<Rc<dyn Stmt>> {
+        let result = if self.match_token(vec![VAR]) {
+            self.var_declaration()
+        } else {
+            self.statement()
+        };
+
+        match result {
+            Ok(res) => Ok(res),
+            Err(err) => {
+                self.synchronise()?;
+                Err(anyhow!(err))
+            }
+        }
+    }
+
+    fn var_declaration(&mut self) -> Result<Rc<dyn Stmt>> {
+        let var_name: Token = self.consume(IDENTIFIER)?;
+
+        let var_value = if self.match_token(vec![EQUAL]) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume(SEMICOLON)?;
+
+        Ok(Rc::new(VarStmt {
+            var_name,
+            var_value,
+        }))
     }
 
     pub fn statement(&mut self) -> Result<Rc<dyn Stmt>> {
@@ -167,6 +199,12 @@ impl Parser {
             }
         }
 
+        if self.match_token(vec![IDENTIFIER]) {
+            return Ok(Rc::new(
+                VarExpr { var_name: self.previous() }
+            ));
+        }
+
         Err(anyhow!("Unknown token"))
     }
 
@@ -222,5 +260,24 @@ impl Parser {
             .get((self.current - 1) as usize)
             .unwrap()
             .to_owned()
+    }
+
+    fn synchronise(&mut self) -> Result<()> {
+        self.get_current_and_advance_cursor();
+        while !self.is_at_end() {
+            if self.previous().token_type == SEMICOLON {
+                break;
+            }
+
+            match self.peek().ok_or(anyhow!("can't peek"))?.token_type {
+                CLASS | FUN | VAR | FOR | IF | WHILE | PRINT | RETURN => {
+                    break;
+                },
+                _ => {
+                    self.get_current_and_advance_cursor();
+                }
+            }
+        }
+        Ok(())
     }
 }

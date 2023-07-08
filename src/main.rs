@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use rustyline::{DefaultEditor, Result};
 use rustyline::error::ReadlineError;
+use crate::environment::Environment;
 
 use crate::parser::Parser;
 use crate::scanner::run;
@@ -16,6 +17,7 @@ mod scanner;
 mod token;
 mod visitor;
 mod stmt;
+mod environment;
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = env::args().collect::<Vec<String>>()[1..].to_vec();
@@ -30,7 +32,7 @@ fn main() -> Result<()> {
         let tokens = run(file_content).unwrap();
         let mut parser = Parser::new(tokens);
         let stmts: Vec<Rc<dyn Stmt>> = parser.parse().unwrap();
-        let mut interpreter = Interpreter::new();
+        let mut interpreter = Interpreter::new(Environment::new());
         println!("Evaluated: {:?}", interpreter.interpret(stmts));
         process::exit(1);
     }
@@ -48,7 +50,7 @@ fn main() -> Result<()> {
                 let stmts: Vec<Rc<dyn Stmt>> = parser.parse().unwrap();
                 // let mut ast_printer = AstPrinter::new();
                 // println!("Tokens: {:?}", ast_printer.print(Rc::clone(&stmts)));
-                let mut interpreter = Interpreter::new();
+                let mut interpreter = Interpreter::new(Environment::new());
                 println!("Evaluated: {:?}", interpreter.interpret(stmts));
             }
             Err(ReadlineError::Interrupted) => {

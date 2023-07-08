@@ -52,3 +52,15 @@ impl Expr for GroupingExpr {
         visitor.visit_grouping_expr(self).unwrap()
     }
 }
+
+pub struct VarExpr {
+    // Will be of IDENTIFIER type
+    // We don't save the value here, value is saved in env
+    pub var_name: Token
+}
+
+impl Expr for VarExpr {
+    fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
+        visitor.visit_var_expr(self).unwrap()
+    }
+}
