@@ -3,12 +3,18 @@ use crate::token::{DataType, TokenType};
 use std::rc::Rc;
 use anyhow::Result;
 use anyhow::anyhow;
+use crate::stmt::{ExprStmt, PrintStmt, Stmt};
 
 pub trait Visitor {
     fn visit_literal_expr(&mut self, expr: &LiteralExpr) -> Result<DataType>;
     fn visit_unary_expr(&mut self, expr: &UnaryExpr) -> Result<DataType>;
     fn visit_binary_expr(&mut self, expr: &BinaryExpr) -> Result<DataType>;
     fn visit_grouping_expr(&mut self, expr: &GroupingExpr) -> Result<DataType>;
+}
+
+pub trait StmtVisitor {
+    fn visit_print_statement(&mut self, stmt: &PrintStmt) -> Result<()>;
+    fn visit_expr_statement(&mut self, stmt: &ExprStmt) -> Result<()>;
 }
 
 pub struct AstPrinter {}
@@ -80,9 +86,22 @@ impl Interpreter {
     pub fn new() -> Self {
         Self {}
     }
-    pub fn evaluate(&mut self, expression: Rc<dyn Expr>) -> DataType {
+
+    pub fn interpret(&mut self, statements: Vec<Rc<dyn Stmt>>) -> Result<()> {
+        for statement in statements {
+            self.execute(statement)?
+        }
+        Ok(())
+    }
+
+    fn evaluate(&mut self, expression: Rc<dyn Expr>) -> DataType {
         expression.accept(self)
     }
+
+    fn execute(&mut self, statement: Rc<dyn Stmt>) -> Result<()> {
+        statement.accept(self)
+    }
+
     fn is_truthy(&self, value: DataType) -> bool {
         match value {
             DataType::String(_) => true,
@@ -241,5 +260,18 @@ impl Visitor for Interpreter {
 
     fn visit_grouping_expr(&mut self, expr: &GroupingExpr) -> Result<DataType> {
         Ok(self.evaluate(Rc::clone(&expr.expression)))
+    }
+}
+
+impl StmtVisitor for Interpreter {
+    fn visit_print_statement(&mut self, stmt: &PrintStmt) -> Result<()> {
+        let value = self.evaluate(Rc::clone(&stmt.expression));
+        dbg!(value.to_string());
+        Ok(())
+    }
+
+    fn visit_expr_statement(&mut self, stmt: &ExprStmt) -> Result<()> {
+        self.evaluate(Rc::clone(&stmt.expression));
+        Ok(())
     }
 }

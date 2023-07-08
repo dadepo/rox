@@ -1,12 +1,10 @@
 use crate::expr::{BinaryExpr, Expr, GroupingExpr, LiteralExpr, UnaryExpr};
-use crate::token::TokenType::{
-    BANG, BANGEQUAL, EOF, EQUALEQUAL, FALSE, GREATER, GREATEREQUAL, LEFTPAREN, LESS, LESSEQUAL,
-    MINUS, NIL, NUMBER, PLUS, RIGHTPAREN, SLASH, STAR, STRING, TRUE,
-};
+use crate::token::TokenType::{BANG, BANGEQUAL, EOF, EQUALEQUAL, FALSE, GREATER, GREATEREQUAL, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL, NUMBER, PLUS, PRINT, RIGHTPAREN, SEMICOLON, SLASH, STAR, STRING, TRUE};
 use crate::token::{DataType, Token, TokenType};
 use anyhow::anyhow;
 use anyhow::Result;
 use std::rc::Rc;
+use crate::stmt::{ExprStmt, PrintStmt, Stmt};
 
 #[derive(Default)]
 pub struct Parser {
@@ -30,9 +28,40 @@ impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
         Parser { tokens, current: 0 }
     }
-    pub fn parse(&mut self) -> Result<Rc<dyn Expr>> {
-        self.expression()
+
+    pub fn parse(&mut self) -> Result<Vec<Rc<dyn Stmt>>> {
+        let mut statements = vec![];
+        while !self.is_at_end() {
+            statements.push(self.statement()?)
+        }
+
+        Ok(statements)
     }
+
+    pub fn statement(&mut self) -> Result<Rc<dyn Stmt>> {
+        if self.match_token(vec![PRINT]) {
+            self.print_statement()
+        } else {
+            self.expression_statement()
+        }
+    }
+
+    pub fn print_statement(&mut self) -> Result<Rc<dyn Stmt>> {
+        let expr = self.expression()?;
+        self.consume(SEMICOLON)?;
+        Ok(Rc::new(PrintStmt {
+            expression: expr,
+        }))
+    }
+
+    pub fn expression_statement(&mut self) -> Result<Rc<dyn Stmt>> {
+        let expr = self.expression()?;
+        self.consume(SEMICOLON)?;
+        Ok(Rc::new(ExprStmt {
+            expression: expr,
+        }))
+    }
+
     // expression → equality
     pub fn expression(&mut self) -> Result<Rc<dyn Expr>> {
         self.equality()

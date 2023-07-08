@@ -44,7 +44,7 @@ impl Scanner {
             self.start = self.current;
             self.scan_token()?;
         }
-        self.add_token(EOF, None)?;
+        self.tokens.push(Token::new(EOF, "".to_string(), None, self.line));
         Ok(self.tokens)
     }
 
@@ -106,7 +106,7 @@ impl Scanner {
                 Ok(())
             }
             '\n' => {
-                self.current += 1;
+                self.line += 1;
                 Ok(())
             }
             '"' => {

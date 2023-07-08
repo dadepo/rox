@@ -1,20 +1,24 @@
+use std::{env, fs, process};
+use std::rc::Rc;
+
+use rustyline::{DefaultEditor, Result};
+use rustyline::error::ReadlineError;
+
+use crate::parser::Parser;
+use crate::scanner::run;
+use crate::stmt::Stmt;
+use crate::visitor::Interpreter;
+
 mod expr;
 mod parser;
 mod predicate;
 mod scanner;
 mod token;
 mod visitor;
-
-use crate::parser::Parser;
-use crate::scanner::run;
-use crate::visitor::{AstPrinter, Interpreter};
-use rustyline::error::ReadlineError;
-use rustyline::{DefaultEditor, Result};
-use std::{env, process};
-use std::rc::Rc;
+mod stmt;
 
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect::<Vec<String>>()[1..].to_vec();
+    let mut args: Vec<String> = env::args().collect::<Vec<String>>()[1..].to_vec();
 
     if args.len() > 1 {
         println!("Usage: rlox [script]");
@@ -22,7 +26,12 @@ fn main() -> Result<()> {
     }
 
     if args.len() == 1 {
-        println!("Running from file not supported yet");
+        let file_content = fs::read_to_string(args.remove(0))?;
+        let tokens = run(file_content).unwrap();
+        let mut parser = Parser::new(tokens);
+        let stmts: Vec<Rc<dyn Stmt>> = parser.parse().unwrap();
+        let mut interpreter = Interpreter::new();
+        println!("Evaluated: {:?}", interpreter.interpret(stmts));
         process::exit(1);
     }
 
@@ -36,12 +45,11 @@ fn main() -> Result<()> {
                 rl.add_history_entry(line.as_str())?;
                 let tokens = run(line).unwrap();
                 let mut parser = Parser::new(tokens);
-                let ast = parser.parse().unwrap();
-                let mut ast_printer = AstPrinter::new();
-
+                let stmts: Vec<Rc<dyn Stmt>> = parser.parse().unwrap();
+                // let mut ast_printer = AstPrinter::new();
+                // println!("Tokens: {:?}", ast_printer.print(Rc::clone(&stmts)));
                 let mut interpreter = Interpreter::new();
-                println!("Tokens: {:?}", ast_printer.print(Rc::clone(&ast)));
-                println!("Evaluated: {:?}", interpreter.evaluate(ast));
+                println!("Evaluated: {:?}", interpreter.interpret(stmts));
             }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
