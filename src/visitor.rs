@@ -1,10 +1,10 @@
-use crate::expr::{BinaryExpr, Expr, GroupingExpr, LiteralExpr, UnaryExpr, VarExpr};
+use crate::expr::{AssignExpr, BinaryExpr, Expr, GroupingExpr, LiteralExpr, UnaryExpr, VarExpr};
 use crate::token::{DataType, TokenType};
 use std::rc::Rc;
 use anyhow::Result;
 use anyhow::anyhow;
 use crate::environment::Environment;
-use crate::stmt::{ExprStmt, PrintStmt, Stmt, VarStmt};
+use crate::stmt::{BlockStmt, ExprStmt, PrintStmt, Stmt, VarStmt};
 
 pub trait Visitor {
     fn visit_literal_expr(&mut self, expr: &LiteralExpr) -> Result<DataType>;
@@ -12,12 +12,14 @@ pub trait Visitor {
     fn visit_binary_expr(&mut self, expr: &BinaryExpr) -> Result<DataType>;
     fn visit_grouping_expr(&mut self, expr: &GroupingExpr) -> Result<DataType>;
     fn visit_var_expr(&mut self, expr: &VarExpr) -> Result<DataType>;
+    fn visit_assign_expr(&mut self, expr: &AssignExpr) -> Result<DataType>;
 }
 
 pub trait StmtVisitor {
     fn visit_print_statement(&mut self, stmt: &PrintStmt) -> Result<()>;
     fn visit_expr_statement(&mut self, stmt: &ExprStmt) -> Result<()>;
     fn visit_var_statement(&mut self, stmt: &VarStmt) -> Result<()>;
+    fn visit_block_statement(&mut self, stmt: &BlockStmt) -> Result<()>;
 }
 
 pub struct AstPrinter {}
@@ -85,6 +87,10 @@ impl Visitor for AstPrinter {
     fn visit_var_expr(&mut self, expr: &VarExpr) -> Result<DataType> {
         todo!()
     }
+
+    fn visit_assign_expr(&mut self, expr: &AssignExpr) -> Result<DataType> {
+        todo!()
+    }
 }
 
 pub struct Interpreter {
@@ -96,10 +102,22 @@ impl Interpreter {
         Self { environment }
     }
 
+
+
     pub fn interpret(&mut self, statements: Vec<Rc<dyn Stmt>>) -> Result<()> {
         for statement in statements {
             self.execute(statement)?
         }
+        Ok(())
+    }
+
+    fn execute_block(&mut self, statements: Vec<Rc<dyn Stmt>>, environment: Environment) -> Result<()> {
+        let prev_environment = self.environment.clone();
+        self.environment =  environment;
+        for statement in statements {
+            self.execute(statement)?;
+        }
+        self.environment = prev_environment;
         Ok(())
     }
 
@@ -274,6 +292,12 @@ impl Visitor for Interpreter {
     fn visit_var_expr(&mut self, expr: &VarExpr) -> Result<DataType> {
         self.environment.get(&expr.var_name.lexeme).ok_or(anyhow!("var does not exist"))
     }
+
+    fn visit_assign_expr(&mut self, expr: &AssignExpr) -> Result<DataType> {
+        let value = self.evaluate(Rc::clone(&expr.var_value.as_ref().unwrap()));
+        self.environment.assign(expr.var_name.lexeme.clone(), Some(value.clone()))?;
+        Ok(value)
+    }
 }
 
 impl StmtVisitor for Interpreter {
@@ -299,5 +323,11 @@ impl StmtVisitor for Interpreter {
             }
         }
         Ok(())
+    }
+
+    fn visit_block_statement(&mut self, stmt: &BlockStmt) -> Result<()> {
+        self.execute_block(
+            stmt.statements.clone(),
+            Environment::new_with_parent_environment(self.environment.clone()))
     }
 }

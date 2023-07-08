@@ -37,3 +37,13 @@ impl Stmt for VarStmt {
         visitor.visit_var_statement(self)
     }
 }
+
+pub struct BlockStmt {
+    pub statements: Vec<Rc<dyn Stmt>>
+}
+
+impl Stmt for BlockStmt {
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()> {
+        visitor.visit_block_statement(self)
+    }
+}

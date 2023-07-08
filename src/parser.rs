@@ -1,10 +1,11 @@
-use crate::expr::{BinaryExpr, Expr, GroupingExpr, LiteralExpr, UnaryExpr, VarExpr};
-use crate::token::TokenType::{BANG, BANGEQUAL, EOF, EQUALEQUAL, FALSE, GREATER, GREATEREQUAL, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL, NUMBER, PLUS, PRINT, RIGHTPAREN, SEMICOLON, SLASH, STAR, STRING, TRUE, CLASS, FUN, VAR, FOR, IF, WHILE, RETURN, IDENTIFIER, EQUAL};
+use crate::expr::{AssignExpr, BinaryExpr, Expr, GroupingExpr, LiteralExpr, UnaryExpr, VarExpr};
+use crate::token::TokenType::{BANG, BANGEQUAL, EOF, EQUALEQUAL, FALSE, GREATER, GREATEREQUAL, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL, NUMBER, PLUS, PRINT, RIGHTPAREN, SEMICOLON, SLASH, STAR, STRING, TRUE, CLASS, FUN, VAR, FOR, IF, WHILE, RETURN, IDENTIFIER, EQUAL, LEFTBRACE, RIGHTBRACE};
 use crate::token::{DataType, Token, TokenType};
 use anyhow::anyhow;
 use anyhow::Result;
 use std::rc::Rc;
-use crate::stmt::{ExprStmt, PrintStmt, Stmt, VarStmt};
+use crate::scanner::error;
+use crate::stmt::{BlockStmt, ExprStmt, PrintStmt, Stmt, VarStmt};
 
 #[derive(Default)]
 pub struct Parser {
@@ -73,9 +74,22 @@ impl Parser {
     pub fn statement(&mut self) -> Result<Rc<dyn Stmt>> {
         if self.match_token(vec![PRINT]) {
             self.print_statement()
+        } else if self.match_token(vec![LEFTBRACE]) {
+            Ok(Rc::new(BlockStmt {
+                statements: self.block()?
+            }))
         } else {
             self.expression_statement()
         }
+    }
+
+    pub fn block(&mut self) -> Result<Vec<Rc<dyn Stmt>>> {
+        let mut statements = vec![];
+        while !self.check(RIGHTBRACE) && !self.is_at_end() {
+            statements.push(self.declaration()?);
+        }
+        self.consume(RIGHTBRACE)?;
+        Ok(statements)
     }
 
     pub fn print_statement(&mut self) -> Result<Rc<dyn Stmt>> {
@@ -96,7 +110,27 @@ impl Parser {
 
     // expression → equality
     pub fn expression(&mut self) -> Result<Rc<dyn Expr>> {
-        self.equality()
+        self.assignment()
+    }
+
+    pub fn assignment(&mut self) -> Result<Rc<dyn Expr>> {
+        let expr = self.equality()?;
+        if self.match_token(vec![EQUAL]) {
+            let _ = self.previous();
+            let value = self.assignment()?;
+
+            if expr.as_any().downcast_ref::<VarExpr>().is_some() {
+                let var_name = expr.as_any().downcast_ref::<VarExpr>().unwrap().var_name.clone();
+                return Ok(Rc::new(AssignExpr {
+                    var_name,
+                    var_value: Some(value)
+                }))
+            } else {
+                dbg!("error");
+            }
+        }
+
+        Ok(expr)
     }
 
     // equality → comparison ( ( "!=" | "==" ) comparison )

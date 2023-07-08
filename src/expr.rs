@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 
@@ -6,6 +7,7 @@ use crate::visitor::Visitor;
 
 pub trait Expr {
     fn accept(&self, visitor: &mut dyn Visitor) -> DataType;
+    fn as_any(&self) -> &dyn Any;
 }
 
 impl Debug for dyn Expr {
@@ -21,6 +23,10 @@ impl Expr for LiteralExpr {
     fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
         visitor.visit_literal_expr(self).unwrap()
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 pub struct UnaryExpr {
@@ -30,6 +36,9 @@ pub struct UnaryExpr {
 impl Expr for UnaryExpr {
     fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
         visitor.visit_unary_expr(self).unwrap()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -42,6 +51,9 @@ impl Expr for BinaryExpr {
     fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
         visitor.visit_binary_expr(self).unwrap()
     }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 pub struct GroupingExpr {
@@ -50,6 +62,9 @@ pub struct GroupingExpr {
 impl Expr for GroupingExpr {
     fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
         visitor.visit_grouping_expr(self).unwrap()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -62,5 +77,22 @@ pub struct VarExpr {
 impl Expr for VarExpr {
     fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
         visitor.visit_var_expr(self).unwrap()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+pub struct AssignExpr {
+    pub var_name: Token,
+    pub var_value: Option<Rc<dyn Expr>>
+}
+
+impl Expr for AssignExpr {
+    fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
+        visitor.visit_assign_expr(self).unwrap()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
