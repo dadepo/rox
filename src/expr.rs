@@ -5,6 +5,7 @@ use std::rc::Rc;
 use crate::token::{DataType, Token};
 use crate::visitor::Visitor;
 
+
 pub trait Expr {
     fn accept(&self, visitor: &mut dyn Visitor) -> DataType;
     fn as_any(&self) -> &dyn Any;
@@ -71,7 +72,7 @@ impl Expr for GroupingExpr {
 pub struct VarExpr {
     // Will be of IDENTIFIER type
     // We don't save the value here, value is saved in env
-    pub var_name: Token
+    pub var_name: Token,
 }
 
 impl Expr for VarExpr {
@@ -85,13 +86,29 @@ impl Expr for VarExpr {
 
 pub struct AssignExpr {
     pub var_name: Token,
-    pub var_value: Option<Rc<dyn Expr>>
+    pub var_value: Option<Rc<dyn Expr>>,
 }
 
 impl Expr for AssignExpr {
     fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
         visitor.visit_assign_expr(self).unwrap()
     }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+pub struct LogicalExpr {
+    pub left: Rc<dyn Expr>,
+    pub operator: Token,
+    pub right: Rc<dyn Expr>
+}
+
+impl Expr for LogicalExpr {
+    fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
+        visitor.visit_logical_expr(self).unwrap()
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }

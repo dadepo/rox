@@ -1,23 +1,23 @@
-use std::{env, fs, process};
 use std::rc::Rc;
+use std::{env, fs, process};
 
-use rustyline::{DefaultEditor, Result};
-use rustyline::error::ReadlineError;
 use crate::environment::Environment;
+use rustyline::error::ReadlineError;
+use rustyline::{DefaultEditor, Result};
 
 use crate::parser::Parser;
 use crate::scanner::run;
 use crate::stmt::Stmt;
 use crate::visitor::Interpreter;
 
+mod environment;
 mod expr;
 mod parser;
 mod predicate;
 mod scanner;
+mod stmt;
 mod token;
 mod visitor;
-mod stmt;
-mod environment;
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = env::args().collect::<Vec<String>>()[1..].to_vec();
@@ -48,8 +48,6 @@ fn main() -> Result<()> {
                 let tokens = run(line).unwrap();
                 let mut parser = Parser::new(tokens);
                 let stmts: Vec<Rc<dyn Stmt>> = parser.parse().unwrap();
-                // let mut ast_printer = AstPrinter::new();
-                // println!("Tokens: {:?}", ast_printer.print(Rc::clone(&stmts)));
                 let mut interpreter = Interpreter::new(Environment::new());
                 println!("Evaluated: {:?}", interpreter.interpret(stmts));
             }

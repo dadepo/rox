@@ -44,7 +44,8 @@ impl Scanner {
             self.start = self.current;
             self.scan_token()?;
         }
-        self.tokens.push(Token::new(EOF, "".to_string(), None, self.line));
+        self.tokens
+            .push(Token::new(EOF, "".to_string(), None, self.line));
         Ok(self.tokens)
     }
 
