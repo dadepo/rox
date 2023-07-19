@@ -1,10 +1,13 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use anyhow::anyhow;
+use anyhow::Result;
+
 use crate::environment::Environment;
 use crate::expr::{AssignExpr, BinaryExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
 use crate::stmt::{BlockStmt, ExprStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt};
 use crate::token::{DataType, TokenType};
-use anyhow::anyhow;
-use anyhow::Result;
-use std::rc::Rc;
 use crate::token::TokenType::OR;
 
 pub trait Visitor {
@@ -103,11 +106,11 @@ impl Visitor for AstPrinter {
 }
 
 pub struct Interpreter {
-    pub environment: Environment,
+    pub environment: RefCell<Rc<RefCell<Environment>>>,
 }
 
 impl Interpreter {
-    pub fn new(environment: Environment) -> Self {
+    pub fn new(environment: RefCell<Rc<RefCell<Environment>>>) -> Self {
         Self { environment }
     }
 
@@ -123,12 +126,11 @@ impl Interpreter {
         statements: Vec<Rc<dyn Stmt>>,
         block_environment: Environment,
     ) -> Result<()> {
-        // This approach probably create an environment for iteration of the block?
-        // revisit
-        self.environment = block_environment;
+        let previous = self.environment.replace(Rc::new(RefCell::new(block_environment)));
         for statement in statements {
             self.execute(statement)?;
         }
+        self.environment.replace(previous);
         Ok(())
     }
 
@@ -300,6 +302,8 @@ impl Visitor for Interpreter {
 
     fn visit_var_expr(&mut self, expr: &VarExpr) -> Result<DataType> {
         self.environment
+            .borrow()
+            .borrow()
             .get(&expr.var_name.lexeme)
             .ok_or(anyhow!("var does not exist"))
     }
@@ -307,6 +311,8 @@ impl Visitor for Interpreter {
     fn visit_assign_expr(&mut self, expr: &AssignExpr) -> Result<DataType> {
         let value = self.evaluate(Rc::clone(expr.var_value.as_ref().unwrap()));
         self.environment
+            .borrow()
+            .borrow_mut()
             .assign(expr.var_name.lexeme.clone(), Some(value.clone()))?;
         Ok(value)
     }
@@ -339,10 +345,12 @@ impl StmtVisitor for Interpreter {
 
     fn visit_var_statement(&mut self, stmt: &VarStmt) -> Result<()> {
         match stmt.var_value.as_ref() {
-            None => self.environment.define(stmt.var_name.lexeme.clone(), None),
+            None => self.environment.borrow().borrow_mut().define(stmt.var_name.lexeme.clone(), None),
             Some(stmt_line) => {
                 let value = self.evaluate(stmt_line.clone());
                 self.environment
+                    .borrow()
+                    .borrow_mut()
                     .define(stmt.var_name.lexeme.clone(), Some(value))
             }
         }
@@ -350,9 +358,10 @@ impl StmtVisitor for Interpreter {
     }
 
     fn visit_block_statement(&mut self, stmt: &BlockStmt) -> Result<()> {
+        let env = Environment::new_with_parent_environment(self.environment.borrow().clone());
         self.execute_block(
             stmt.statements.clone(),
-            Environment::new_with_parent_environment(self.environment.clone()),
+            env,
         )
     }
 
@@ -376,7 +385,7 @@ impl StmtVisitor for Interpreter {
 
         while condition {
             condition = match &self.evaluate(Rc::clone(&stmt.condition)) {
-                DataType::Bool(true_value) => true_value.clone(),
+                DataType::Bool(true_value) => *true_value,
                 _ => return Err(anyhow!("condition should be boolean"))
             };
 

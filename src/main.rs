@@ -1,5 +1,6 @@
 use std::rc::Rc;
 use std::{env, fs, process};
+use std::cell::RefCell;
 
 use crate::environment::Environment;
 use rustyline::error::ReadlineError;
@@ -32,7 +33,7 @@ fn main() -> Result<()> {
         let tokens = run(file_content).unwrap();
         let mut parser = Parser::new(tokens);
         let stmts: Vec<Rc<dyn Stmt>> = parser.parse().unwrap();
-        let mut interpreter = Interpreter::new(Environment::new());
+        let mut interpreter = Interpreter::new(RefCell::new(Rc::new(RefCell::new(Environment::new()))));
         println!("Evaluated: {:?}", interpreter.interpret(stmts));
         process::exit(1);
     }
@@ -48,7 +49,7 @@ fn main() -> Result<()> {
                 let tokens = run(line).unwrap();
                 let mut parser = Parser::new(tokens);
                 let stmts: Vec<Rc<dyn Stmt>> = parser.parse().unwrap();
-                let mut interpreter = Interpreter::new(Environment::new());
+                let mut interpreter = Interpreter::new(RefCell::new(Rc::new(RefCell::new(Environment::new()))));
                 println!("Evaluated: {:?}", interpreter.interpret(stmts));
             }
             Err(ReadlineError::Interrupted) => {

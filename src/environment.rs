@@ -18,8 +18,8 @@ impl Environment {
             values: HashMap::new(),
         }
     }
-    pub fn new_with_parent_environment(parent_environment: Environment) -> Self {
-        let parent_environment = Some(Rc::new(RefCell::new(parent_environment)));
+    pub fn new_with_parent_environment(parent_environment: Rc<RefCell<Environment>>) -> Self {
+        let parent_environment = Some(parent_environment);
         Self {
             parent_environment,
             values: HashMap::new(),
@@ -29,13 +29,13 @@ impl Environment {
         self.values.insert(name, value);
     }
 
-    pub fn get(&mut self, name: &str) -> Option<DataType> {
+    pub fn get(&self, name: &str) -> Option<DataType> {
         if let Some(Some(value)) = self.values.get(name) {
             Some(value.to_owned())
         } else {
             // check parent
             match &self.parent_environment {
-                Some(parent_env) => parent_env.borrow_mut().get(name),
+                Some(parent_env) => parent_env.borrow().get(name),
                 None => None
             }
         }
