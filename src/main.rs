@@ -19,6 +19,7 @@ mod scanner;
 mod stmt;
 mod token;
 mod visitor;
+mod functions;
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = env::args().collect::<Vec<String>>()[1..].to_vec();

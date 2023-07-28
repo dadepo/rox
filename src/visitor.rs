@@ -5,8 +5,9 @@ use anyhow::anyhow;
 use anyhow::Result;
 
 use crate::environment::Environment;
-use crate::expr::{AssignExpr, BinaryExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
-use crate::stmt::{BlockStmt, ExprStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt};
+use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
+use crate::functions::{Clock, LoxCallable, LoxFunction, LoxNative};
+use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt};
 use crate::token::{DataType, TokenType};
 use crate::token::TokenType::OR;
 
@@ -14,6 +15,7 @@ pub trait Visitor {
     fn visit_literal_expr(&mut self, expr: &LiteralExpr) -> Result<DataType>;
     fn visit_unary_expr(&mut self, expr: &UnaryExpr) -> Result<DataType>;
     fn visit_binary_expr(&mut self, expr: &BinaryExpr) -> Result<DataType>;
+    fn visit_call_expr(&mut self, expr: &CallExpr) -> Result<DataType>;
     fn visit_grouping_expr(&mut self, expr: &GroupingExpr) -> Result<DataType>;
     fn visit_var_expr(&mut self, expr: &VarExpr) -> Result<DataType>;
     fn visit_assign_expr(&mut self, expr: &AssignExpr) -> Result<DataType>;
@@ -27,91 +29,27 @@ pub trait StmtVisitor {
     fn visit_block_statement(&mut self, stmt: &BlockStmt) -> Result<()>;
     fn visit_if_statement(&mut self, stmt: &IfStmt) -> Result<()>;
     fn visit_while_statement(&mut self, stmt: &WhileStmt) -> Result<()>;
-}
-
-pub struct AstPrinter {}
-
-#[allow(dead_code)]
-impl AstPrinter {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    pub fn print(&mut self, expr: Rc<dyn Expr>) -> String {
-        match expr.accept(self) {
-            DataType::String(s) => s,
-            _ => "Error".to_string(),
-        }
-    }
-
-    fn parenthesize(&mut self, name: &str, exprs: Vec<&dyn Expr>) -> DataType {
-        let mut s = String::new();
-        s.push('(');
-        s.push_str(name);
-        for expr in exprs {
-            s.push(' ');
-            let expr_str = match expr.accept(self) {
-                DataType::String(s) => s,
-                _ => "Incorrect expression".to_string(),
-            };
-            s.push_str(expr_str.as_str());
-        }
-        s.push(')');
-        DataType::String(s)
-    }
-}
-
-impl Visitor for AstPrinter {
-    fn visit_literal_expr(&mut self, expr: &LiteralExpr) -> Result<DataType> {
-        if let Some(value) = expr.value.as_ref() {
-            let result = match value {
-                DataType::String(s) => DataType::String(s.to_string()),
-                DataType::Number(num) => DataType::String(num.to_string()),
-                DataType::Bool(true) => DataType::String("true".to_string()),
-                DataType::Bool(false) => DataType::String("false".to_string()),
-                DataType::Nil => DataType::String("nil".to_string()),
-            };
-            Ok(result)
-        } else {
-            Ok(DataType::String("nil".to_string()))
-        }
-    }
-
-    fn visit_unary_expr(&mut self, expr: &UnaryExpr) -> Result<DataType> {
-        Ok(self.parenthesize(&expr.operator.lexeme, vec![expr.right.as_ref()]))
-    }
-
-    fn visit_binary_expr(&mut self, expr: &BinaryExpr) -> Result<DataType> {
-        Ok(self.parenthesize(
-            &expr.operator.lexeme,
-            vec![expr.left.as_ref(), expr.right.as_ref()],
-        ))
-    }
-
-    fn visit_grouping_expr(&mut self, expr: &GroupingExpr) -> Result<DataType> {
-        Ok(self.parenthesize("group", vec![expr.expression.as_ref()]))
-    }
-
-    fn visit_var_expr(&mut self, _expr: &VarExpr) -> Result<DataType> {
-        todo!()
-    }
-
-    fn visit_assign_expr(&mut self, _expr: &AssignExpr) -> Result<DataType> {
-        todo!()
-    }
-
-    fn visit_logical_expr(&mut self, _expr: &LogicalExpr) -> Result<DataType> {
-        todo!()
-    }
+    fn visit_function_statement(&mut self, stmt: &FunctionStmt) -> Result<()>;
 }
 
 pub struct Interpreter {
+    pub globals: Rc<RefCell<Environment>>,
     pub environment: RefCell<Rc<RefCell<Environment>>>,
 }
 
 impl Interpreter {
-    pub fn new(environment: RefCell<Rc<RefCell<Environment>>>) -> Self {
-        Self { environment }
+    pub fn new(_environment: RefCell<Rc<RefCell<Environment>>>) -> Self {
+        let globals = Rc::new(RefCell::new(Environment::new()));
+
+        let clock = DataType::NativeFunction(LoxNative {
+            function: Rc::new(Clock::new("Clock".to_string())),
+        });
+        globals.borrow_mut().define("clock".to_string(), Some(clock));
+
+        Self {
+            globals: Rc::clone(&globals),
+            environment: RefCell::new(Rc::clone(&globals))
+        }
     }
 
     pub fn interpret(&mut self, statements: Vec<Rc<dyn Stmt>>) -> Result<()> {
@@ -121,14 +59,14 @@ impl Interpreter {
         Ok(())
     }
 
-    fn execute_block(
+    pub fn execute_block(
         &mut self,
-        statements: Vec<Rc<dyn Stmt>>,
+        statements: Rc<Vec<Rc<dyn Stmt>>>,
         block_environment: Environment,
     ) -> Result<()> {
         let previous = self.environment.replace(Rc::new(RefCell::new(block_environment)));
-        for statement in statements {
-            self.execute(statement)?;
+        for statement in statements.as_ref() {
+            self.execute(statement.clone())?;
         }
         self.environment.replace(previous);
         Ok(())
@@ -148,6 +86,7 @@ impl Interpreter {
             DataType::Number(_) => true,
             DataType::Bool(_) => true,
             DataType::Nil => false,
+            _ => false
         }
     }
 
@@ -161,6 +100,7 @@ impl Interpreter {
             (DataType::Number(_), _) => false,
             (DataType::String(l), DataType::String(r)) => l == r,
             (DataType::String(_), _) => false,
+            _ => false
         }
     }
 }
@@ -296,6 +236,35 @@ impl Visitor for Interpreter {
         }
     }
 
+    fn visit_call_expr(&mut self, expr: &CallExpr) -> Result<DataType> {
+        let callee = self.evaluate(Rc::clone(&expr.callee));
+        let mut arguments = vec![];
+
+        for argument in &expr.arguments {
+            arguments.push(self.evaluate(Rc::clone(argument)))
+        }
+
+        let function: Rc<dyn LoxCallable> = match callee {
+            DataType::Function(f) => {
+                Rc::new(f)
+            },
+            _ => {
+                return Err(anyhow!("Can only call functions and classes."))
+            }
+        };
+
+        if function.arity() != arguments.len() {
+            let msg = format!(
+                "Expected {} arguments but got {}.",
+                function.arity(),
+                arguments.len()
+            );
+            return Err(anyhow!(msg))
+        };
+
+        function.call(self, arguments)
+    }
+
     fn visit_grouping_expr(&mut self, expr: &GroupingExpr) -> Result<DataType> {
         Ok(self.evaluate(Rc::clone(&expr.expression)))
     }
@@ -359,8 +328,9 @@ impl StmtVisitor for Interpreter {
 
     fn visit_block_statement(&mut self, stmt: &BlockStmt) -> Result<()> {
         let env = Environment::new_with_parent_environment(self.environment.borrow().clone());
+        let statements = Rc::new(stmt.statements.clone());
         self.execute_block(
-            stmt.statements.clone(),
+            statements,
             env,
         )
     }
@@ -394,6 +364,15 @@ impl StmtVisitor for Interpreter {
             }
         }
 
+        Ok(())
+    }
+
+    fn visit_function_statement(&mut self, stmt: &FunctionStmt) -> Result<()> {
+        let function = LoxFunction::new(stmt, &self.environment.borrow(), false);
+        self.environment
+            .borrow()
+            .borrow_mut()
+            .define(stmt.name.lexeme.clone(), Some(DataType::Function(function)));
         Ok(())
     }
 }

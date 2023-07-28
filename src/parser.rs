@@ -3,9 +3,11 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use anyhow::Result;
 
-use crate::expr::{AssignExpr, BinaryExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
-use crate::stmt::{BlockStmt, ExprStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt};
-use crate::token::TokenType::{AND, BANG, BANGEQUAL, CLASS, ELSE, EOF, EQUAL, EQUALEQUAL, FALSE, FOR, FUN, GREATER, GREATEREQUAL, IDENTIFIER, IF, LEFTBRACE, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL, NUMBER, OR, PLUS, PRINT, RETURN, RIGHTBRACE, RIGHTPAREN, SEMICOLON, SLASH, STAR, STRING, TRUE, VAR, WHILE};
+use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
+use crate::functions::Kind;
+use crate::scanner::error;
+use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt};
+use crate::token::TokenType::{AND, BANG, BANGEQUAL, CLASS, COMMA, ELSE, EOF, EQUAL, EQUALEQUAL, FALSE, FOR, FUN, GREATER, GREATEREQUAL, IDENTIFIER, IF, LEFTBRACE, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL, NUMBER, OR, PLUS, PRINT, RETURN, RIGHTBRACE, RIGHTPAREN, SEMICOLON, SLASH, STAR, STRING, TRUE, VAR, WHILE};
 use crate::token::{DataType, Token, TokenType};
 
 #[derive(Default)]
@@ -41,7 +43,9 @@ impl Parser {
     }
 
     pub fn declaration(&mut self) -> Result<Rc<dyn Stmt>> {
-        let result = if self.match_token(vec![VAR]) {
+        let result = if self.match_token(vec![FUN]) {
+          self.function(Kind::Function)
+        } else if self.match_token(vec![VAR]) {
             self.var_declaration()
         } else {
             self.statement()
@@ -54,6 +58,33 @@ impl Parser {
                 Err(anyhow!(err))
             }
         }
+    }
+
+    fn function(&mut self, _kind: Kind) -> Result<Rc<dyn Stmt>> {
+        let name = self.consume(IDENTIFIER)?;
+        self.consume(LEFTPAREN)?;
+        let mut params = vec![];
+        if !self.check(RIGHTPAREN) {
+            loop {
+
+                if params.len() >= 255 {
+                    dbg!("Can't have more than 255 parameters.");
+                }
+                params.push(self.consume(IDENTIFIER)?);
+                if !self.match_token(vec![COMMA]) {
+                    break;
+                }
+            }
+        }
+        self.consume(RIGHTPAREN)?;
+        self.consume(LEFTBRACE)?;
+        let body = self.block()?;
+
+        Ok(Rc::new(FunctionStmt {
+            name,
+            params,
+            body
+        }))
     }
 
     fn var_declaration(&mut self) -> Result<Rc<dyn Stmt>> {
@@ -312,7 +343,43 @@ impl Parser {
             return Ok(Rc::new(UnaryExpr { operator, right }));
         }
 
-        self.primary()
+        self.call()
+    }
+
+    pub fn call(&mut self) -> Result<Rc<dyn Expr>> {
+        let mut expr = self.primary()?;
+        while true {
+            if self.match_token(vec![LEFTPAREN]) {
+                expr = self.finish_call(&expr)?;
+            } else {
+                break
+            }
+        }
+
+        Ok(expr)
+    }
+
+    pub fn finish_call(&mut self, callee: &Rc<dyn Expr>) -> Result<Rc<dyn Expr>> {
+        let mut arguments = vec![];
+        if !self.check(RIGHTPAREN) {
+            loop {
+                if arguments.len() >= 255 {
+                    dbg!("Can't have more than 255 arguments.");
+                }
+                arguments.push(self.expression()?);
+                if !self.match_token(vec![COMMA]) {
+                    break
+                }
+            }
+        }
+
+        let paren = self.consume(RIGHTPAREN)?;
+
+        Ok(Rc::new(CallExpr {
+            callee: Rc::clone(callee),
+            paren,
+            arguments,
+        }))
     }
 
     pub fn primary(&mut self) -> Result<Rc<dyn Expr>> {
@@ -358,6 +425,7 @@ impl Parser {
         if self.check(token_type) {
             Ok(self.get_current_and_advance_cursor())
         } else {
+            // TODO accept the error message
             Err(anyhow!("error"))
         }
     }

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 
 use lazy_static::lazy_static;
+use crate::functions::{LoxFunction, LoxNative};
 
 lazy_static! {
     pub static ref KEYWORDS: HashMap<&'static str, TokenType> = {
@@ -109,6 +110,8 @@ pub enum DataType {
     Number(f64),
     Bool(bool),
     Nil,
+    Function(LoxFunction),
+    NativeFunction(LoxNative)
 }
 
 impl Display for DataType {
@@ -118,6 +121,8 @@ impl Display for DataType {
             DataType::Number(n) => write!(f, "{n}"),
             DataType::Bool(b) => write!(f, "{b}"),
             DataType::Nil => write!(f, "NIL"),
+            DataType::Function(func) => write!(f, "{func}"),
+            DataType::NativeFunction(func) => write!(f, "{func}"),
         }
     }
 }

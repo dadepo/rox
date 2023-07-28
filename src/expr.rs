@@ -113,3 +113,19 @@ impl Expr for LogicalExpr {
         self
     }
 }
+
+pub struct CallExpr {
+    pub callee: Rc<dyn Expr>,
+    pub paren: Token,
+    pub arguments: Vec<Rc<dyn Expr>>
+}
+
+impl Expr for CallExpr {
+    fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
+        visitor.visit_call_expr(self).unwrap()
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+

@@ -72,3 +72,15 @@ impl Stmt for WhileStmt {
         visitor.visit_while_statement(self)
     }
 }
+
+pub struct FunctionStmt {
+    pub name: Token,
+    pub params: Vec<Token>,
+    pub body: Vec<Rc<dyn Stmt>>,
+}
+
+impl Stmt for FunctionStmt {
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()> {
+        visitor.visit_function_statement(self)
+    }
+}
