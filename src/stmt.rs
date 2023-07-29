@@ -3,18 +3,18 @@ use std::rc::Rc;
 use anyhow::Result;
 
 use crate::expr::Expr;
-use crate::token::Token;
+use crate::token::{DataType, Token};
 use crate::visitor::StmtVisitor;
 
 pub trait Stmt {
-    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()>;
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<DataType>;
 }
 
 pub struct PrintStmt {
     pub expression: Rc<dyn Expr>,
 }
 impl Stmt for PrintStmt {
-    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()> {
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<DataType> {
         visitor.visit_print_statement(self)
     }
 }
@@ -24,7 +24,7 @@ pub struct ExprStmt {
 }
 
 impl Stmt for ExprStmt {
-    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()> {
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<DataType> {
         visitor.visit_expr_statement(self)
     }
 }
@@ -35,7 +35,7 @@ pub struct VarStmt {
 }
 
 impl Stmt for VarStmt {
-    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()> {
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<DataType> {
         visitor.visit_var_statement(self)
     }
 }
@@ -45,7 +45,7 @@ pub struct BlockStmt {
 }
 
 impl Stmt for BlockStmt {
-    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()> {
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<DataType> {
         visitor.visit_block_statement(self)
     }
 }
@@ -57,7 +57,7 @@ pub struct IfStmt {
 }
 
 impl Stmt for IfStmt {
-    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()> {
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<DataType> {
         visitor.visit_if_statement(self)
     }
 }
@@ -68,7 +68,7 @@ pub struct WhileStmt {
 }
 
 impl Stmt for WhileStmt {
-    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()> {
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<DataType> {
         visitor.visit_while_statement(self)
     }
 }
@@ -80,7 +80,18 @@ pub struct FunctionStmt {
 }
 
 impl Stmt for FunctionStmt {
-    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<()> {
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<DataType> {
         visitor.visit_function_statement(self)
+    }
+}
+
+pub struct ReturnStmt {
+    pub keyword: Token,
+    pub value: Option<Rc<dyn Expr>>,
+}
+
+impl Stmt for ReturnStmt {
+    fn accept(&self, visitor: &mut dyn StmtVisitor) -> Result<DataType> {
+        visitor.visit_return_statement(self)
     }
 }

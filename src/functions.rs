@@ -72,8 +72,7 @@ impl LoxCallable for LoxFunction {
             environment.define(token.lexeme.to_string(), Some(value));
         }
         let statements = self.clone().body;
-        interpreter.execute_block(statements, environment)?;
-        Ok(DataType::Nil)
+        interpreter.execute_block(&statements, environment)
     }
 }
 

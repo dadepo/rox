@@ -6,7 +6,7 @@ use anyhow::Result;
 use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
 use crate::functions::Kind;
 use crate::scanner::error;
-use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt};
+use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt};
 use crate::token::TokenType::{AND, BANG, BANGEQUAL, CLASS, COMMA, ELSE, EOF, EQUAL, EQUALEQUAL, FALSE, FOR, FUN, GREATER, GREATEREQUAL, IDENTIFIER, IF, LEFTBRACE, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL, NUMBER, OR, PLUS, PRINT, RETURN, RIGHTBRACE, RIGHTPAREN, SEMICOLON, SLASH, STAR, STRING, TRUE, VAR, WHILE};
 use crate::token::{DataType, Token, TokenType};
 
@@ -110,6 +110,8 @@ impl Parser {
             self.if_statement()
         } else if self.match_token(vec![PRINT]) {
             self.print_statement()
+        } else if self.match_token(vec![RETURN]) {
+            self.return_statement()
         } else if self.match_token(vec![WHILE]) {
             self.while_statement()
         } else if self.match_token(vec![LEFTBRACE]) {
@@ -209,6 +211,17 @@ impl Parser {
         let expr = self.expression()?;
         self.consume(SEMICOLON)?;
         Ok(Rc::new(PrintStmt { expression: expr }))
+    }
+
+    pub fn return_statement(&mut self) -> Result<Rc<dyn Stmt>> {
+        let keyword = self.previous();
+        let value = if !self.check(SEMICOLON) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume(SEMICOLON)?;
+        Ok(Rc::new(ReturnStmt { keyword, value }))
     }
 
     pub fn expression_statement(&mut self) -> Result<Rc<dyn Stmt>> {

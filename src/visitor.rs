@@ -7,7 +7,7 @@ use anyhow::Result;
 use crate::environment::Environment;
 use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
 use crate::functions::{Clock, LoxCallable, LoxFunction, LoxNative};
-use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, Stmt, VarStmt, WhileStmt};
+use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt};
 use crate::token::{DataType, TokenType};
 use crate::token::TokenType::OR;
 
@@ -23,13 +23,14 @@ pub trait Visitor {
 }
 
 pub trait StmtVisitor {
-    fn visit_print_statement(&mut self, stmt: &PrintStmt) -> Result<()>;
-    fn visit_expr_statement(&mut self, stmt: &ExprStmt) -> Result<()>;
-    fn visit_var_statement(&mut self, stmt: &VarStmt) -> Result<()>;
-    fn visit_block_statement(&mut self, stmt: &BlockStmt) -> Result<()>;
-    fn visit_if_statement(&mut self, stmt: &IfStmt) -> Result<()>;
-    fn visit_while_statement(&mut self, stmt: &WhileStmt) -> Result<()>;
-    fn visit_function_statement(&mut self, stmt: &FunctionStmt) -> Result<()>;
+    fn visit_print_statement(&mut self, stmt: &PrintStmt) -> Result<DataType>;
+    fn visit_expr_statement(&mut self, stmt: &ExprStmt) -> Result<DataType>;
+    fn visit_var_statement(&mut self, stmt: &VarStmt) -> Result<DataType>;
+    fn visit_block_statement(&mut self, stmt: &BlockStmt) -> Result<DataType>;
+    fn visit_if_statement(&mut self, stmt: &IfStmt) -> Result<DataType>;
+    fn visit_while_statement(&mut self, stmt: &WhileStmt) -> Result<DataType>;
+    fn visit_function_statement(&mut self, stmt: &FunctionStmt) -> Result<DataType>;
+    fn visit_return_statement(&mut self, stmt: &ReturnStmt) -> Result<DataType>;
 }
 
 pub struct Interpreter {
@@ -38,7 +39,7 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
-    pub fn new(_environment: RefCell<Rc<RefCell<Environment>>>) -> Self {
+    pub fn new() -> Self {
         let globals = Rc::new(RefCell::new(Environment::new()));
 
         let clock = DataType::NativeFunction(LoxNative {
@@ -54,29 +55,36 @@ impl Interpreter {
 
     pub fn interpret(&mut self, statements: Vec<Rc<dyn Stmt>>) -> Result<()> {
         for statement in statements {
-            self.execute(statement)?
+            self.execute(statement)?;
         }
         Ok(())
     }
 
     pub fn execute_block(
         &mut self,
-        statements: Rc<Vec<Rc<dyn Stmt>>>,
-        block_environment: Environment,
-    ) -> Result<()> {
-        let previous = self.environment.replace(Rc::new(RefCell::new(block_environment)));
+        statements: &Rc<Vec<Rc<dyn Stmt>>>,
+        environment: Environment,
+    ) -> Result<DataType> {
+        let previous = self.environment.replace(Rc::new(RefCell::new(environment)));
         for statement in statements.as_ref() {
-            self.execute(statement.clone())?;
+            let returned = self.execute(statement.clone())?;
+            match returned {
+                DataType::Nil => continue,
+                _ => {
+                    self.environment.replace(previous.clone());
+                    return Ok(returned)
+                }
+            }
         }
-        self.environment.replace(previous);
-        Ok(())
+        self.environment.replace(previous.clone());
+        Ok(DataType::Nil)
     }
 
     fn evaluate(&mut self, expression: Rc<dyn Expr>) -> DataType {
         expression.accept(self)
     }
 
-    fn execute(&mut self, statement: Rc<dyn Stmt>) -> Result<()> {
+    fn execute(&mut self, statement: Rc<dyn Stmt>) -> Result<DataType> {
         statement.accept(self)
     }
 
@@ -301,18 +309,18 @@ impl Visitor for Interpreter {
 }
 
 impl StmtVisitor for Interpreter {
-    fn visit_print_statement(&mut self, stmt: &PrintStmt) -> Result<()> {
+    fn visit_print_statement(&mut self, stmt: &PrintStmt) -> Result<DataType> {
         let value = self.evaluate(Rc::clone(&stmt.expression));
         println!("{}", value.to_string());
-        Ok(())
+        Ok(DataType::Nil)
     }
 
-    fn visit_expr_statement(&mut self, stmt: &ExprStmt) -> Result<()> {
+    fn visit_expr_statement(&mut self, stmt: &ExprStmt) -> Result<DataType> {
         self.evaluate(Rc::clone(&stmt.expression));
-        Ok(())
+        Ok(DataType::Nil)
     }
 
-    fn visit_var_statement(&mut self, stmt: &VarStmt) -> Result<()> {
+    fn visit_var_statement(&mut self, stmt: &VarStmt) -> Result<DataType> {
         match stmt.var_value.as_ref() {
             None => self.environment.borrow().borrow_mut().define(stmt.var_name.lexeme.clone(), None),
             Some(stmt_line) => {
@@ -323,34 +331,37 @@ impl StmtVisitor for Interpreter {
                     .define(stmt.var_name.lexeme.clone(), Some(value))
             }
         }
-        Ok(())
+        Ok(DataType::Nil)
     }
 
-    fn visit_block_statement(&mut self, stmt: &BlockStmt) -> Result<()> {
+    fn visit_block_statement(&mut self, stmt: &BlockStmt) -> Result<DataType> {
         let env = Environment::new_with_parent_environment(self.environment.borrow().clone());
         let statements = Rc::new(stmt.statements.clone());
         self.execute_block(
-            statements,
+            &statements,
             env,
         )
     }
 
-    fn visit_if_statement(&mut self, stmt: &IfStmt) -> Result<()> {
+    fn visit_if_statement(&mut self, stmt: &IfStmt) -> Result<DataType> {
         let condition = self.evaluate(Rc::clone(&stmt.condition));
+        let mut return_value: DataType = DataType::Nil;
         match condition {
             DataType::Bool(value) => {
                 if value {
-                    self.execute(Rc::clone(&stmt.then_branch))?;
+                    return_value = self.execute(Rc::clone(&stmt.then_branch))?
                 } else if let Some(else_branch) = stmt.else_branch.as_ref() {
-                    self.execute(Rc::clone(else_branch))?
+                    return_value = self.execute(Rc::clone(else_branch))?
+                } else {
+                    return_value = DataType::Nil
                 }
             }
             _ => Err(anyhow!("condition not boolean"))?,
         };
-        Ok(())
+        Ok(return_value)
     }
 
-    fn visit_while_statement(&mut self, stmt: &WhileStmt) -> Result<()> {
+    fn visit_while_statement(&mut self, stmt: &WhileStmt) -> Result<DataType> {
         let mut condition = true;
 
         while condition {
@@ -364,15 +375,24 @@ impl StmtVisitor for Interpreter {
             }
         }
 
-        Ok(())
+        Ok(DataType::Nil)
     }
 
-    fn visit_function_statement(&mut self, stmt: &FunctionStmt) -> Result<()> {
+    fn visit_function_statement(&mut self, stmt: &FunctionStmt) -> Result<DataType> {
         let function = LoxFunction::new(stmt, &self.environment.borrow(), false);
         self.environment
             .borrow()
             .borrow_mut()
             .define(stmt.name.lexeme.clone(), Some(DataType::Function(function)));
-        Ok(())
+        Ok(DataType::Nil)
+    }
+
+    fn visit_return_statement(&mut self, stmt: &ReturnStmt) -> Result<DataType> {
+        let return_value = if stmt.value.is_some() {
+            Ok(self.evaluate(stmt.value.clone().unwrap()))
+        } else {
+            Ok(DataType::Nil)
+        };
+        return_value
     }
 }
