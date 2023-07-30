@@ -63,7 +63,7 @@ impl LoxCallable for LoxFunction {
     }
 
     fn call(&self, interpreter: &mut Interpreter, arguments: Vec<DataType>) -> anyhow::Result<DataType> {
-        let mut environment = Environment::new_with_parent_environment(Rc::clone(&interpreter.globals));
+        let mut environment = Environment::new_with_parent_environment(Rc::clone(&self.closure));
         for (i, token) in self.params.iter().enumerate() {
             let value = match arguments.get(i) {
                 Some(d) => d.clone(),
