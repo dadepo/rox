@@ -1,17 +1,10 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use anyhow::anyhow;
 use anyhow::Result;
 
-use crate::environment::Environment;
-use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
-use crate::functions::{Clock, LoxCallable, LoxFunction, LoxNative};
-use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt};
-use crate::token::{DataType, TokenType};
-use crate::token::TokenType::OR;
+use crate::expr::{AssignExpr, BinaryExpr, CallExpr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
+use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, VarStmt, WhileStmt};
+use crate::token::DataType;
 
-pub trait Visitor {
+pub trait ExprVisitor {
     fn visit_literal_expr(&mut self, expr: &LiteralExpr) -> Result<DataType>;
     fn visit_unary_expr(&mut self, expr: &UnaryExpr) -> Result<DataType>;
     fn visit_binary_expr(&mut self, expr: &BinaryExpr) -> Result<DataType>;

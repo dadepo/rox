@@ -1,17 +1,19 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use crate::environment::Environment;
 use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
 use crate::functions::{Clock, LoxCallable, LoxFunction, LoxNative};
 use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt};
 use anyhow::{anyhow, Result};
-use crate::token::{DataType, TokenType};
+use crate::token::{DataType, Token, TokenType};
 use crate::token::TokenType::OR;
-use crate::visitor::{StmtVisitor, Visitor};
+use crate::visitor::{StmtVisitor, ExprVisitor};
 
 pub struct Interpreter {
     pub globals: Rc<RefCell<Environment>>,
     pub environment: RefCell<Rc<RefCell<Environment>>>,
+    pub locals: RefCell<HashMap<String, usize>>,
 }
 
 impl Interpreter {
@@ -25,7 +27,8 @@ impl Interpreter {
 
         Self {
             globals: Rc::clone(&globals),
-            environment: RefCell::new(Rc::clone(&globals))
+            environment: RefCell::new(Rc::clone(&globals)),
+            locals: RefCell::new(HashMap::new()),
         }
     }
 
@@ -87,9 +90,52 @@ impl Interpreter {
             _ => false
         }
     }
+
+    fn get_hash_key(&self, expr: Rc<dyn Expr>) -> Result<String> {
+        let mut hash: String = String::new();
+        if let Ok(var) = self.get_var_expr_hash(Rc::clone(&expr)) {
+            hash = var
+        } else if let Ok(assign) = self.get_assign_expr_hash(Rc::clone(&expr)) {
+            hash = assign
+        } else {
+            return Err(anyhow!("could not find hash of expr"))
+        }
+        Ok(hash)
+    }
+
+    pub fn resolve(&self, expr: Rc<dyn Expr>, depth: usize) -> Result<DataType> {
+        let hash: String = self.get_hash_key(expr)?;
+        self.locals.borrow_mut().insert(hash, depth);
+        Ok(DataType::Nil)
+    }
+
+    pub fn get_var_expr_hash(&self, expr: Rc<dyn Expr>) -> Result<String> {
+        if let Some(var) = expr.as_any().downcast_ref::<VarExpr>() {
+            let token = &var.var_name;
+            Ok(format!(
+                "{}-{}-{:?}",
+                token.lexeme, token.line, token.literal
+            ))
+        } else {
+            Err(anyhow!("Not a VarExpr"))
+        }
+    }
+
+    pub fn get_assign_expr_hash(&self, expr: Rc<dyn Expr>) -> Result<String> {
+        if let Some(var) = expr.as_any().downcast_ref::<AssignExpr>() {
+            let token = &var.var_name;
+            Ok(format!(
+                "{}-{}-{:?}",
+                token.lexeme, token.line, token.literal
+            ))
+        } else {
+            Err(anyhow!("Not a AssignExpr"))
+        }
+    }
+
 }
 
-impl Visitor for Interpreter {
+impl ExprVisitor for Interpreter {
     fn visit_literal_expr(&mut self, expr: &LiteralExpr) -> Result<DataType> {
         match expr.value.as_ref() {
             None => Ok(DataType::Nil),

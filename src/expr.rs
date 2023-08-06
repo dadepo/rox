@@ -1,13 +1,14 @@
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use crate::token::{DataType, Token};
-use crate::visitor::Visitor;
+use crate::visitor::ExprVisitor;
 
 
 pub trait Expr {
-    fn accept(&self, visitor: &mut dyn Visitor) -> DataType;
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType;
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -21,7 +22,7 @@ pub struct LiteralExpr {
     pub value: Option<DataType>,
 }
 impl Expr for LiteralExpr {
-    fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
         visitor.visit_literal_expr(self).unwrap()
     }
 
@@ -35,7 +36,7 @@ pub struct UnaryExpr {
     pub right: Rc<dyn Expr>,
 }
 impl Expr for UnaryExpr {
-    fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
         visitor.visit_unary_expr(self).unwrap()
     }
     fn as_any(&self) -> &dyn Any {
@@ -49,7 +50,7 @@ pub struct BinaryExpr {
     pub right: Rc<dyn Expr>,
 }
 impl Expr for BinaryExpr {
-    fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
         visitor.visit_binary_expr(self).unwrap()
     }
     fn as_any(&self) -> &dyn Any {
@@ -61,7 +62,7 @@ pub struct GroupingExpr {
     pub expression: Rc<dyn Expr>,
 }
 impl Expr for GroupingExpr {
-    fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
         visitor.visit_grouping_expr(self).unwrap()
     }
     fn as_any(&self) -> &dyn Any {
@@ -76,7 +77,7 @@ pub struct VarExpr {
 }
 
 impl Expr for VarExpr {
-    fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
         visitor.visit_var_expr(self).unwrap()
     }
     fn as_any(&self) -> &dyn Any {
@@ -90,7 +91,7 @@ pub struct AssignExpr {
 }
 
 impl Expr for AssignExpr {
-    fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
         visitor.visit_assign_expr(self).unwrap()
     }
     fn as_any(&self) -> &dyn Any {
@@ -105,7 +106,7 @@ pub struct LogicalExpr {
 }
 
 impl Expr for LogicalExpr {
-    fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
         visitor.visit_logical_expr(self).unwrap()
     }
 
@@ -121,7 +122,7 @@ pub struct CallExpr {
 }
 
 impl Expr for CallExpr {
-    fn accept(&self, visitor: &mut dyn Visitor) -> DataType {
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
         visitor.visit_call_expr(self).unwrap()
     }
     fn as_any(&self) -> &dyn Any {
