@@ -4,9 +4,9 @@ use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 use std::time::SystemTime;
 use crate::environment::Environment;
+use crate::interpreter::Interpreter;
 use crate::stmt::{FunctionStmt, Stmt};
 use crate::token::{DataType, Token};
-use crate::visitor::Interpreter;
 
 pub trait LoxCallable: Debug + Display {
     fn arity(&self) -> usize;

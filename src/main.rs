@@ -5,11 +5,11 @@ use std::cell::RefCell;
 use crate::environment::Environment;
 use rustyline::error::ReadlineError;
 use rustyline::{DefaultEditor, Result};
+use crate::interpreter::Interpreter;
 
 use crate::parser::Parser;
 use crate::scanner::run;
 use crate::stmt::Stmt;
-use crate::visitor::Interpreter;
 
 mod environment;
 mod expr;
@@ -20,6 +20,7 @@ mod stmt;
 mod token;
 mod visitor;
 mod functions;
+mod interpreter;
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = env::args().collect::<Vec<String>>()[1..].to_vec();
