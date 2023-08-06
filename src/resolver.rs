@@ -4,7 +4,7 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
 use crate::interpreter::Interpreter;
-use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, VarStmt, WhileStmt};
+use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt};
 use crate::token::{DataType, Token};
 use crate::visitor::{ExprVisitor, StmtVisitor};
 
@@ -21,17 +21,24 @@ enum ClassType {
     Class,
 }
 
-pub struct Resolver {
-    interpreter: Rc<Interpreter>,
+pub struct Resolver<'a> {
+    interpreter: &'a Interpreter,
     scopes: RefCell<Vec<RefCell<HashMap<String, bool>>>>,
 }
 
-impl Resolver {
-    pub fn new(interpreter: Rc<Interpreter>) -> Self {
+impl<'a> Resolver<'a> {
+    pub fn new(interpreter: &'a Interpreter) -> Self {
         Self {
             interpreter,
             scopes: RefCell::new(Vec::new()),
         }
+    }
+
+    pub fn resolve(&mut self, statements: Vec<Rc<dyn Stmt>>) -> anyhow::Result<()> {
+        for stmt in statements.iter() {
+            stmt.accept(self)?;
+        }
+        Ok(())
     }
 
     fn begin_scope(&mut self) {
@@ -83,7 +90,7 @@ impl Resolver {
     }
 }
 
-impl ExprVisitor for Resolver {
+impl<'a> ExprVisitor for Resolver<'a> {
     fn visit_literal_expr(&mut self, _expr: &LiteralExpr) -> anyhow::Result<DataType> {
         Ok(DataType::Nil)
     }
@@ -154,7 +161,7 @@ impl ExprVisitor for Resolver {
 }
 
 
-impl StmtVisitor for Resolver {
+impl<'a> StmtVisitor for Resolver<'a> {
     fn visit_print_statement(&mut self, stmt: &PrintStmt) -> anyhow::Result<DataType> {
         stmt.expression.accept(self);
         Ok(DataType::Nil)

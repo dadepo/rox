@@ -1,4 +1,4 @@
-use crate::token::DataType;
+use crate::token::{DataType, Token};
 use anyhow::anyhow;
 use anyhow::Result;
 use std::cell::RefCell;
@@ -41,6 +41,18 @@ impl Environment {
         }
     }
 
+    pub fn get_at(&self, distance: usize, name: &str) -> Option<DataType> {
+        if distance == 0 {
+            self.values.get(&name.to_string()).unwrap().clone()
+        } else {
+            self.parent_environment
+                .as_ref()
+                .unwrap()
+                .borrow()
+                .get_at(distance - 1, name)
+        }
+    }
+
     pub fn assign(&mut self, name: String, value: Option<DataType>) -> Result<()> {
         if let std::collections::hash_map::Entry::Occupied(mut e) = self.values.entry(name.clone()) {
             e.insert(value);
@@ -54,6 +66,19 @@ impl Environment {
             Ok(())
         } else {
             Err(anyhow!("variable does not exist"))
+        }
+    }
+
+    pub fn assign_at(&mut self, distance: usize, name: &Token, value: DataType) -> Result<()> {
+        if distance == 0 {
+            self.values.insert(name.lexeme.to_string(), Some(value));
+            Ok(())
+        } else {
+            self.parent_environment
+                .as_ref()
+                .unwrap()
+                .borrow_mut()
+                .assign_at(distance - 1, name, value)
         }
     }
 }

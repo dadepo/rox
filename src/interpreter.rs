@@ -133,6 +133,19 @@ impl Interpreter {
         }
     }
 
+    fn look_up_variable(&self, name: &Token, expr: &Rc<dyn Expr>) -> Result<DataType> {
+        let local: String = self.get_hash_key(Rc::clone(&expr))?;
+        let option = if let Some(distance) = self.locals.borrow().get(&local) {
+            self.environment
+                .borrow()
+                .borrow()
+                .get_at(*distance, &name.lexeme)
+        } else {
+            self.globals.borrow().get(&name.lexeme)
+        };
+
+        option.ok_or(anyhow!("var not found"))
+    }
 }
 
 impl ExprVisitor for Interpreter {
@@ -300,19 +313,31 @@ impl ExprVisitor for Interpreter {
     }
 
     fn visit_var_expr(&mut self, expr: &VarExpr) -> Result<DataType> {
-        self.environment
-            .borrow()
-            .borrow()
-            .get(&expr.var_name.lexeme)
-            .ok_or(anyhow!("var does not exist"))
+        let var_name = expr.var_name.clone();
+        let expr: Rc<dyn Expr> = Rc::new(VarExpr { var_name: var_name.clone() });
+        self.look_up_variable(&var_name, &expr)
+        // self.environment
+        //     .borrow()
+        //     .borrow()
+        //     .get(&expr.var_name.lexeme)
+        //     .ok_or(anyhow!("var does not exist"))
     }
 
     fn visit_assign_expr(&mut self, expr: &AssignExpr) -> Result<DataType> {
+        let expr_rc: Rc<dyn Expr> = Rc::new(AssignExpr { var_name: expr.var_name.clone(), var_value: expr.var_value.clone() });
         let value = self.evaluate(Rc::clone(expr.var_value.as_ref().unwrap()));
-        self.environment
-            .borrow()
-            .borrow_mut()
-            .assign(expr.var_name.lexeme.clone(), Some(value.clone()))?;
+        let local: String = self.get_hash_key(Rc::clone(&expr_rc))?;
+        if let Some(distance) = self.locals.borrow().get(&local) {
+            self.environment
+                .borrow()
+                .borrow_mut()
+                .assign_at(*distance, &expr.var_name, value.clone())?;
+        } else {
+            self.globals
+                .borrow_mut()
+                .assign(expr.var_name.lexeme.clone(), Some(value.clone()))?;
+        }
+
         Ok(value)
     }
 

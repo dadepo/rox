@@ -8,6 +8,7 @@ use rustyline::{DefaultEditor, Result};
 use crate::interpreter::Interpreter;
 
 use crate::parser::Parser;
+use crate::resolver::Resolver;
 use crate::scanner::run;
 use crate::stmt::Stmt;
 
@@ -37,6 +38,10 @@ fn main() -> Result<()> {
         let mut parser = Parser::new(tokens);
         let stmts: Vec<Rc<dyn Stmt>> = parser.parse().unwrap();
         let mut interpreter = Interpreter::new();
+
+        let mut resolver = Resolver::new(&interpreter);
+        resolver.resolve(stmts.clone()).unwrap();
+
         println!("Evaluated: {:?}", interpreter.interpret(stmts));
         process::exit(1);
     }
@@ -53,6 +58,10 @@ fn main() -> Result<()> {
                 let mut parser = Parser::new(tokens);
                 let stmts: Vec<Rc<dyn Stmt>> = parser.parse().unwrap();
                 let mut interpreter = Interpreter::new();
+
+                let mut resolver = Resolver::new(&interpreter);
+                resolver.resolve(stmts.clone()).unwrap();
+
                 println!("Evaluated: {:?}", interpreter.interpret(stmts));
             }
             Err(ReadlineError::Interrupted) => {
