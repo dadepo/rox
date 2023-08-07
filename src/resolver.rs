@@ -24,6 +24,7 @@ enum ClassType {
 pub struct Resolver<'a> {
     interpreter: &'a Interpreter,
     scopes: RefCell<Vec<RefCell<HashMap<String, bool>>>>,
+    current_function: RefCell<FunctionType>,
 }
 
 impl<'a> Resolver<'a> {
@@ -31,6 +32,7 @@ impl<'a> Resolver<'a> {
         Self {
             interpreter,
             scopes: RefCell::new(Vec::new()),
+            current_function: RefCell::new(FunctionType::None),
         }
     }
 
@@ -66,7 +68,8 @@ impl<'a> Resolver<'a> {
         Ok(DataType::Nil)
     }
 
-    fn resolve_function(&mut self, stmt: &FunctionStmt) -> anyhow::Result<DataType> {
+    fn resolve_function(&mut self, stmt: &FunctionStmt, function_type: FunctionType) -> anyhow::Result<DataType> {
+        let enclosing_function = self.current_function.replace(function_type);
         self.begin_scope();
         for param in stmt.params.iter() {
             self.declare(param)?;
@@ -76,6 +79,7 @@ impl<'a> Resolver<'a> {
             body.accept(self)?;
         }
         self.end_scope();
+        self.current_function.replace(enclosing_function);
         Ok(DataType::Nil)
     }
 
@@ -208,11 +212,14 @@ impl<'a> StmtVisitor for Resolver<'a> {
     fn visit_function_statement(&mut self, stmt: &FunctionStmt) -> anyhow::Result<DataType> {
         self.declare(&stmt.name)?;
         self.define(&stmt.name)?;
-        self.resolve_function(stmt)?;
+        self.resolve_function(stmt, FunctionType::Function)?;
         Ok(DataType::Nil)
     }
 
     fn visit_return_statement(&mut self, stmt: &ReturnStmt) -> anyhow::Result<DataType> {
+        if *self.current_function.borrow() == FunctionType::None {
+            return Err(anyhow!("Can't return from top-level code."))
+        }
         if let Some(return_value) = &stmt.value {
             return_value.accept(self);
         }
