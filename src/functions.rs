@@ -3,6 +3,8 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 use std::time::SystemTime;
+use anyhow::anyhow;
+use crate::class::LoxInstance;
 use crate::environment::Environment;
 use crate::interpreter::Interpreter;
 use crate::stmt::{FunctionStmt, Stmt};
@@ -14,7 +16,8 @@ pub trait LoxCallable: Debug + Display {
 }
 
 pub enum Kind {
-    Function
+    Function,
+    Method
 }
 
 #[derive(Clone)]
@@ -38,6 +41,19 @@ impl LoxFunction {
             name: Box::new(declaration.name.clone()),
             closure: Rc::clone(closure),
             is_init,
+        }
+    }
+
+    pub fn bind(&self, instance: LoxInstance) -> LoxFunction {
+        let env = RefCell::new(Environment::new_with_parent_environment(Rc::clone(&self.closure)));
+        env.borrow_mut()
+            .define("this".to_string(), Some(DataType::Instance(instance)));
+        LoxFunction {
+            body: Rc::clone(&self.body),
+            params: Rc::clone(&self.params),
+            name: self.name.clone(),
+            closure: Rc::new(env),
+            is_init: self.is_init,
         }
     }
 }
@@ -72,7 +88,21 @@ impl LoxCallable for LoxFunction {
             environment.define(token.lexeme.to_string(), Some(value));
         }
         let statements = self.clone().body;
-        interpreter.execute_block(&statements, environment)
+
+        match interpreter.execute_block(&statements, environment) {
+            Ok(_) => {
+                if self.is_init {
+                    return self.closure.borrow().get_at(0, "this").ok_or(anyhow!("cannot find this"))
+                }
+                return Ok(DataType::Nil)
+            }
+            Err(err) => {
+                if self.is_init {
+                    return self.closure.borrow().get_at(0, "this").ok_or(anyhow!("cannot find this"))
+                }
+                return Err(err)
+            }
+        }
     }
 }
 

@@ -23,6 +23,7 @@ mod visitor;
 mod functions;
 mod interpreter;
 mod resolver;
+mod class;
 
 fn main() -> Result<()> {
     let mut args: Vec<String> = env::args().collect::<Vec<String>>()[1..].to_vec();

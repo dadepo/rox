@@ -2,10 +2,11 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use crate::environment::Environment;
-use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
+use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, ThisExpr, UnaryExpr, VarExpr};
 use crate::functions::{Clock, LoxCallable, LoxFunction, LoxNative};
-use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt};
+use crate::stmt::{BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt};
 use anyhow::{anyhow, Result};
+use crate::class::LoxClass;
 use crate::token::{DataType, Token, TokenType};
 use crate::token::TokenType::OR;
 use crate::visitor::{StmtVisitor, ExprVisitor};
@@ -97,6 +98,8 @@ impl Interpreter {
             hash = var
         } else if let Ok(assign) = self.get_assign_expr_hash(Rc::clone(&expr)) {
             hash = assign
+        } else if let Ok(this) = self.get_this_expr_hash(Rc::clone(&expr)) {
+            hash = this
         } else {
             return Err(anyhow!("could not find hash of expr"))
         }
@@ -124,6 +127,18 @@ impl Interpreter {
     pub fn get_assign_expr_hash(&self, expr: Rc<dyn Expr>) -> Result<String> {
         if let Some(var) = expr.as_any().downcast_ref::<AssignExpr>() {
             let token = &var.var_name;
+            Ok(format!(
+                "{}-{}-{:?}",
+                token.lexeme, token.line, token.literal
+            ))
+        } else {
+            Err(anyhow!("Not a AssignExpr"))
+        }
+    }
+
+    pub fn get_this_expr_hash(&self, expr: Rc<dyn Expr>) -> Result<String> {
+        if let Some(var) = expr.as_any().downcast_ref::<ThisExpr>() {
+            let token = &var.keyword;
             Ok(format!(
                 "{}-{}-{:?}",
                 token.lexeme, token.line, token.literal
@@ -291,6 +306,9 @@ impl ExprVisitor for Interpreter {
             DataType::Function(f) => {
                 Rc::new(f)
             },
+            DataType::Class(class) => {
+                Rc::new(class)
+            },
             _ => {
                 return Err(anyhow!("Can only call functions and classes."))
             }
@@ -352,6 +370,39 @@ impl ExprVisitor for Interpreter {
         }
 
         Ok(self.evaluate(Rc::clone(&expr.right)))
+    }
+
+    fn visit_get_expr(&mut self, expr: &GetExpr) -> Result<DataType> {
+        let object = self.evaluate(Rc::clone(&expr.object));
+        match object {
+            DataType::Instance(instance) => {
+                instance.get(&expr.name)
+            },
+            _ => Err(anyhow!("Only instances have properties."))
+        }
+    }
+
+    fn visit_set_expr(&mut self, expr: &SetExpr) -> Result<DataType> {
+        let object = self.evaluate(Rc::clone(&expr.object));
+
+        return match object {
+            DataType::Instance(instance) => {
+                let value = self.evaluate(Rc::clone(&expr.value));
+                instance.set(&expr.name, value.clone());
+                let cloned = expr.object.clone();
+                let var_expr = cloned.as_any().downcast_ref::<VarExpr>().unwrap();
+                self.globals.borrow_mut().assign(var_expr.var_name.lexeme.clone(), Some(DataType::Instance(instance)))?;
+                Ok(value)
+            },
+            _ => Err(anyhow!("Only instances have fields."))
+        }
+    }
+
+    fn visit_this_expr(&mut self, expr: &ThisExpr) -> Result<DataType> {
+        let keyword = expr.keyword.clone();
+
+        let expr: Rc<dyn Expr> = Rc::new(ThisExpr { keyword: expr.keyword.clone() });
+        self.look_up_variable(&keyword, &expr)
     }
 }
 
@@ -438,8 +489,33 @@ impl StmtVisitor for Interpreter {
         let return_value = if stmt.value.is_some() {
             Ok(self.evaluate(stmt.value.clone().unwrap()))
         } else {
-            Ok(DataType::Nil)
+            Err(anyhow!("return error"))
         };
         return_value
+    }
+
+    fn visit_class_statement(&mut self, stmt: &ClassStmt) -> Result<DataType> {
+        self.environment
+            .borrow()
+            .borrow_mut()
+            .define(stmt.name.lexeme.clone(), None);
+        
+
+        let mut methods: HashMap<String, LoxFunction> = HashMap::new();
+
+        for method in &stmt.methods {
+            let function = method.as_any().downcast_ref::<FunctionStmt>().unwrap();
+            let m = LoxFunction::new(function, &self.environment.borrow(), function.name.lexeme.eq_ignore_ascii_case("this"));
+            methods.insert(function.name.lexeme.clone(), m);
+        }
+
+        let lox_class: LoxClass = LoxClass { name: stmt.name.lexeme.clone(), methods };
+
+        self.environment
+            .borrow()
+            .borrow_mut()
+            .assign(stmt.name.lexeme.clone(), Some(DataType::Class(lox_class)))?;
+        
+        Ok(DataType::Nil)
     }
 }

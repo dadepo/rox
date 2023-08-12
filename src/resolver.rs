@@ -2,9 +2,11 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 use anyhow::anyhow;
-use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GroupingExpr, LiteralExpr, LogicalExpr, UnaryExpr, VarExpr};
+use std::borrow::BorrowMut;
+use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, ThisExpr, UnaryExpr, VarExpr};
+use crate::functions::Kind::Function;
 use crate::interpreter::Interpreter;
-use crate::stmt::{BlockStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt};
+use crate::stmt::{BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt};
 use crate::token::{DataType, Token};
 use crate::visitor::{ExprVisitor, StmtVisitor};
 
@@ -25,6 +27,7 @@ pub struct Resolver<'a> {
     interpreter: &'a Interpreter,
     scopes: RefCell<Vec<RefCell<HashMap<String, bool>>>>,
     current_function: RefCell<FunctionType>,
+    current_class: RefCell<ClassType>,
 }
 
 impl<'a> Resolver<'a> {
@@ -33,6 +36,7 @@ impl<'a> Resolver<'a> {
             interpreter,
             scopes: RefCell::new(Vec::new()),
             current_function: RefCell::new(FunctionType::None),
+            current_class: RefCell::new(ClassType::None),
         }
     }
 
@@ -162,6 +166,30 @@ impl<'a> ExprVisitor for Resolver<'a> {
         expr.right.accept(self);
         Ok(DataType::Nil)
     }
+
+    fn visit_get_expr(&mut self, expr: &GetExpr) -> anyhow::Result<DataType> {
+        expr.object.accept(self);
+        Ok(DataType::Nil)
+    }
+
+    fn visit_set_expr(&mut self, expr: &SetExpr) -> anyhow::Result<DataType> {
+        expr.value.accept(self);
+        expr.object.accept(self);
+        Ok(DataType::Nil)
+    }
+
+    fn visit_this_expr(&mut self, expr: &ThisExpr) -> anyhow::Result<DataType> {
+        if *self.current_class.borrow() == ClassType::None {
+            return Err(anyhow!("Can't use 'this' outside of a class."))
+        }
+
+        let rc_expr: Rc<dyn Expr> = Rc::new(ThisExpr {
+            keyword: expr.keyword.clone(),
+        });
+
+        self.resolve_local(rc_expr, &expr.keyword)?;
+        Ok(DataType::Nil)
+    }
 }
 
 
@@ -221,8 +249,40 @@ impl<'a> StmtVisitor for Resolver<'a> {
             return Err(anyhow!("Can't return from top-level code."))
         }
         if let Some(return_value) = &stmt.value {
+            if *self.current_function.borrow() == FunctionType::Initializer {
+                return Err(anyhow!("Can't return a value from an initializer."))
+            }
             return_value.accept(self);
         }
+        Ok(DataType::Nil)
+    }
+
+    fn visit_class_statement(&mut self, stmt: &ClassStmt) -> anyhow::Result<DataType> {
+        let enclosing_class = self.current_class.replace(ClassType::Class);
+        self.declare(&stmt.name)?;
+        self.define(&stmt.name)?;
+
+        self.begin_scope();
+
+        self.scopes
+            .borrow()
+            .last()
+            .borrow_mut()
+            .unwrap()
+            .borrow_mut()
+            .insert("this".to_string(), true);
+
+        for method in &stmt.methods {
+            let method = method.as_any().downcast_ref::<FunctionStmt>().unwrap();
+            let mut declaration = FunctionType::Method;
+            if method.name.lexeme.eq_ignore_ascii_case("init") {
+                declaration = FunctionType::Initializer;
+            }
+            self.resolve_function(method, declaration)?;
+        }
+
+        self.end_scope();
+        self.current_class.replace(enclosing_class);
         Ok(DataType::Nil)
     }
 }

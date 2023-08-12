@@ -130,3 +130,47 @@ impl Expr for CallExpr {
     }
 }
 
+pub struct GetExpr {
+    pub object: Rc<dyn Expr>,
+    pub name: Token
+}
+
+impl Expr for GetExpr {
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
+        visitor.visit_get_expr(self).unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+pub struct SetExpr {
+    pub object: Rc<dyn Expr>,
+    pub name: Token,
+    pub value: Rc<dyn Expr>
+}
+
+impl Expr for SetExpr {
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
+        visitor.visit_set_expr(self).unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+pub struct ThisExpr {
+    pub keyword: Token
+}
+
+impl Expr for ThisExpr {
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
+        visitor.visit_this_expr(self).unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
