@@ -1,5 +1,3 @@
-use std::any::Any;
-use std::ops::Deref;
 use std::rc::Rc;
 
 use anyhow::anyhow;
@@ -10,18 +8,17 @@ use crate::expr::{
     SetExpr, SuperExpr, ThisExpr, UnaryExpr, VarExpr,
 };
 use crate::functions::Kind;
-use crate::scanner::error;
 use crate::stmt::{
     BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt,
     WhileStmt,
 };
+use crate::token::{DataType, Token, TokenType};
 use crate::token::TokenType::{
     AND, BANG, BANGEQUAL, CLASS, COMMA, DOT, ELSE, EOF, EQUAL, EQUALEQUAL, FALSE, FOR, FUN,
     GREATER, GREATEREQUAL, IDENTIFIER, IF, LEFTBRACE, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL,
     NUMBER, OR, PLUS, PRINT, RETURN, RIGHTBRACE, RIGHTPAREN, SEMICOLON, SLASH, STAR, STRING, SUPER,
     THIS, TRUE, VAR, WHILE,
 };
-use crate::token::{DataType, Token, TokenType};
 
 #[derive(Default)]
 pub struct Parser {
@@ -415,7 +412,7 @@ impl Parser {
 
     pub fn call(&mut self) -> Result<Rc<dyn Expr>> {
         let mut expr = self.primary()?;
-        while true {
+        loop {
             if self.match_token(vec![LEFTPAREN]) {
                 expr = self.finish_call(&expr)?;
             } else if self.match_token(vec![DOT]) {

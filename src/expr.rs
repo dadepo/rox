@@ -1,6 +1,5 @@
 use std::any::Any;
 use std::fmt::{Debug, Formatter};
-use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use crate::token::{DataType, Token};

@@ -1,14 +1,14 @@
-use crate::expr::{Expr, VarExpr};
-use crate::functions::{LoxCallable, LoxFunction};
-use crate::interpreter::Interpreter;
-use crate::token::{DataType, Token};
-use anyhow::anyhow;
-use anyhow::Result;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
-use std::rc::Rc;
+use std::fmt::{Debug, Formatter};
+
+use anyhow::anyhow;
+use anyhow::Result;
+
+use crate::functions::{LoxCallable, LoxFunction};
+use crate::interpreter::Interpreter;
+use crate::token::{DataType, Token};
 
 #[derive(Debug, Clone)]
 pub struct LoxClass {
@@ -50,8 +50,8 @@ impl LoxInstance {
 
         let method = self.class.find_method(name.lexeme.clone());
 
-        if method.is_some() {
-            return Ok(DataType::Function(method.unwrap().bind(self.clone())));
+        if let Some(method) = method {
+            return Ok(DataType::Function(method.bind(self.clone())));
         }
 
         Err(anyhow!("Undefined property"))

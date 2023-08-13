@@ -234,7 +234,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rlox"
+name = "rox"
 version = "0.1.0"
 dependencies = [
  "anyhow",

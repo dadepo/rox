@@ -59,12 +59,12 @@ impl Interpreter {
             match returned {
                 DataType::Nil => continue,
                 _ => {
-                    self.environment.replace(previous.clone());
+                    self.environment.replace(previous);
                     return Ok(returned);
                 }
             }
         }
-        self.environment.replace(previous.clone());
+        self.environment.replace(previous);
         Ok(DataType::Nil)
     }
 
@@ -101,19 +101,17 @@ impl Interpreter {
     }
 
     fn get_hash_key(&self, expr: Rc<dyn Expr>) -> Result<String> {
-        let mut hash: String = String::new();
         if let Ok(var) = self.get_var_expr_hash(Rc::clone(&expr)) {
-            hash = var
+            Ok(var)
         } else if let Ok(assign) = self.get_assign_expr_hash(Rc::clone(&expr)) {
-            hash = assign
+            Ok(assign)
         } else if let Ok(this) = self.get_this_expr_hash(Rc::clone(&expr)) {
-            hash = this
+            Ok(this)
         } else if let Ok(super_expr) = self.get_super_expr_hash(Rc::clone(&expr)) {
-            hash = super_expr
+            Ok(super_expr)
         } else {
             return Err(anyhow!("could not find hash of expr"));
         }
-        Ok(hash)
     }
 
     pub fn resolve(&self, expr: Rc<dyn Expr>, depth: usize) -> Result<DataType> {
@@ -171,7 +169,7 @@ impl Interpreter {
     }
 
     fn look_up_variable(&self, name: &Token, expr: &Rc<dyn Expr>) -> Result<DataType> {
-        let local: String = self.get_hash_key(Rc::clone(&expr))?;
+        let local: String = self.get_hash_key(Rc::clone(expr))?;
         let option = if let Some(distance) = self.locals.borrow().get(&local) {
             self.environment
                 .borrow()
@@ -550,12 +548,11 @@ impl StmtVisitor for Interpreter {
     }
 
     fn visit_return_statement(&mut self, stmt: &ReturnStmt) -> Result<DataType> {
-        let return_value = if stmt.value.is_some() {
+        if stmt.value.is_some() {
             Ok(self.evaluate(stmt.value.clone().unwrap()))
         } else {
             Err(anyhow!("return error"))
-        };
-        return_value
+        }
     }
 
     fn visit_class_statement(&mut self, stmt: &ClassStmt) -> Result<DataType> {
@@ -582,7 +579,7 @@ impl StmtVisitor for Interpreter {
             self.environment
                 .borrow()
                 .borrow_mut()
-                .define("super".to_string(), super_class.clone().map(|super_class|DataType::Class(super_class)));
+                .define("super".to_string(), super_class.clone().map(DataType::Class));
         }
 
         let mut methods: HashMap<String, LoxFunction> = HashMap::new();
@@ -599,7 +596,7 @@ impl StmtVisitor for Interpreter {
 
         let lox_class: LoxClass = LoxClass {
             name: stmt.name.lexeme.clone(),
-            super_class: super_class.clone().map(|class| Box::new(class)),
+            super_class: super_class.clone().map(Box::new),
             methods,
         };
 

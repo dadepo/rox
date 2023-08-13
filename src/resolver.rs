@@ -1,8 +1,14 @@
+use std::borrow::BorrowMut;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+
+use anyhow::anyhow;
+
 use crate::expr::{
     AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr,
     SetExpr, SuperExpr, ThisExpr, UnaryExpr, VarExpr,
 };
-use crate::functions::Kind::Function;
 use crate::interpreter::Interpreter;
 use crate::stmt::{
     BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt,
@@ -10,11 +16,6 @@ use crate::stmt::{
 };
 use crate::token::{DataType, Token};
 use crate::visitor::{ExprVisitor, StmtVisitor};
-use anyhow::anyhow;
-use std::borrow::BorrowMut;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
 
 #[derive(PartialEq)]
 enum FunctionType {
@@ -154,7 +155,7 @@ impl<'a> ExprVisitor for Resolver<'a> {
             let expr: Rc<dyn Expr> = Rc::new(VarExpr {
                 var_name: expr.var_name.clone(),
             });
-            self.resolve_local(expr, &token)?;
+            self.resolve_local(expr, token)?;
         }
         Ok(DataType::Nil)
     }

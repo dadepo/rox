@@ -108,7 +108,7 @@ impl LoxCallable for LoxFunction {
                         .get_at(0, "this")
                         .ok_or(anyhow!("cannot find this"));
                 }
-                return Ok(DataType::Nil);
+                Ok(DataType::Nil)
             }
             Err(err) => {
                 if self.is_init {
@@ -118,7 +118,7 @@ impl LoxCallable for LoxFunction {
                         .get_at(0, "this")
                         .ok_or(anyhow!("cannot find this"));
                 }
-                return Err(err);
+                Err(err)
             }
         }
     }

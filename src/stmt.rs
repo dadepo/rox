@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use anyhow::Result;
 
-use crate::expr::{Expr, VarExpr};
+use crate::expr::Expr;
 use crate::token::{DataType, Token};
 use crate::visitor::StmtVisitor;
 

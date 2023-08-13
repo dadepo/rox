@@ -1,12 +1,10 @@
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::{env, fs, process};
+use std::rc::Rc;
 
-use crate::environment::Environment;
-use crate::interpreter::Interpreter;
-use rustyline::error::ReadlineError;
 use rustyline::{DefaultEditor, Result};
+use rustyline::error::ReadlineError;
 
+use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::resolver::Resolver;
 use crate::scanner::run;
@@ -29,7 +27,7 @@ fn main() -> Result<()> {
     let mut args: Vec<String> = env::args().collect::<Vec<String>>()[1..].to_vec();
 
     if args.len() > 1 {
-        println!("Usage: rlox [script]");
+        println!("Usage: rox [script]");
         process::exit(1);
     }
 
