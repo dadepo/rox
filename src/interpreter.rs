@@ -1,15 +1,21 @@
+use crate::class::LoxClass;
+use crate::environment::Environment;
+use crate::expr::{
+    AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr,
+    SetExpr, SuperExpr, ThisExpr, UnaryExpr, VarExpr,
+};
+use crate::functions::{Clock, LoxCallable, LoxFunction, LoxNative};
+use crate::stmt::{
+    BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt,
+    WhileStmt,
+};
+use crate::token::TokenType::OR;
+use crate::token::{DataType, Token, TokenType};
+use crate::visitor::{ExprVisitor, StmtVisitor};
+use anyhow::{anyhow, Result};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use crate::environment::Environment;
-use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, ThisExpr, UnaryExpr, VarExpr};
-use crate::functions::{Clock, LoxCallable, LoxFunction, LoxNative};
-use crate::stmt::{BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt};
-use anyhow::{anyhow, Result};
-use crate::class::LoxClass;
-use crate::token::{DataType, Token, TokenType};
-use crate::token::TokenType::OR;
-use crate::visitor::{StmtVisitor, ExprVisitor};
 
 pub struct Interpreter {
     pub globals: Rc<RefCell<Environment>>,
@@ -24,7 +30,9 @@ impl Interpreter {
         let clock = DataType::NativeFunction(LoxNative {
             function: Rc::new(Clock::new("Clock".to_string())),
         });
-        globals.borrow_mut().define("clock".to_string(), Some(clock));
+        globals
+            .borrow_mut()
+            .define("clock".to_string(), Some(clock));
 
         Self {
             globals: Rc::clone(&globals),
@@ -52,7 +60,7 @@ impl Interpreter {
                 DataType::Nil => continue,
                 _ => {
                     self.environment.replace(previous.clone());
-                    return Ok(returned)
+                    return Ok(returned);
                 }
             }
         }
@@ -74,7 +82,7 @@ impl Interpreter {
             DataType::Number(_) => true,
             DataType::Bool(_) => true,
             DataType::Nil => false,
-            _ => false
+            _ => false,
         }
     }
 
@@ -88,7 +96,7 @@ impl Interpreter {
             (DataType::Number(_), _) => false,
             (DataType::String(l), DataType::String(r)) => l == r,
             (DataType::String(_), _) => false,
-            _ => false
+            _ => false,
         }
     }
 
@@ -100,8 +108,10 @@ impl Interpreter {
             hash = assign
         } else if let Ok(this) = self.get_this_expr_hash(Rc::clone(&expr)) {
             hash = this
+        } else if let Ok(super_expr) = self.get_super_expr_hash(Rc::clone(&expr)) {
+            hash = super_expr
         } else {
-            return Err(anyhow!("could not find hash of expr"))
+            return Err(anyhow!("could not find hash of expr"));
         }
         Ok(hash)
     }
@@ -145,6 +155,18 @@ impl Interpreter {
             ))
         } else {
             Err(anyhow!("Not a AssignExpr"))
+        }
+    }
+
+    pub fn get_super_expr_hash(&self, expr: Rc<dyn Expr>) -> Result<String> {
+        if let Some(var) = expr.as_any().downcast_ref::<SuperExpr>() {
+            let token = &var.keyword;
+            Ok(format!(
+                "{}-{}-{:?}",
+                token.lexeme, token.line, token.literal
+            ))
+        } else {
+            Err(anyhow!("Not a SuperExpr"))
         }
     }
 
@@ -238,9 +260,7 @@ impl ExprVisitor for Interpreter {
                     (DataType::String(l), DataType::String(r)) => {
                         Ok(DataType::String(format!("{}{}", l, r)))
                     }
-                    (DataType::Number(l), DataType::Number(r)) => {
-                        Ok(DataType::Number(l + r))
-                    },
+                    (DataType::Number(l), DataType::Number(r)) => Ok(DataType::Number(l + r)),
                     _ => Err(anyhow!("Both left and right should be number/string")),
                 }
             }
@@ -303,15 +323,9 @@ impl ExprVisitor for Interpreter {
         }
 
         let function: Rc<dyn LoxCallable> = match callee {
-            DataType::Function(f) => {
-                Rc::new(f)
-            },
-            DataType::Class(class) => {
-                Rc::new(class)
-            },
-            _ => {
-                return Err(anyhow!("Can only call functions and classes."))
-            }
+            DataType::Function(f) => Rc::new(f),
+            DataType::Class(class) => Rc::new(class),
+            _ => return Err(anyhow!("Can only call functions and classes.")),
         };
 
         if function.arity() != arguments.len() {
@@ -320,7 +334,7 @@ impl ExprVisitor for Interpreter {
                 function.arity(),
                 arguments.len()
             );
-            return Err(anyhow!(msg))
+            return Err(anyhow!(msg));
         };
 
         function.call(self, arguments)
@@ -332,7 +346,9 @@ impl ExprVisitor for Interpreter {
 
     fn visit_var_expr(&mut self, expr: &VarExpr) -> Result<DataType> {
         let var_name = expr.var_name.clone();
-        let expr: Rc<dyn Expr> = Rc::new(VarExpr { var_name: var_name.clone() });
+        let expr: Rc<dyn Expr> = Rc::new(VarExpr {
+            var_name: var_name.clone(),
+        });
         self.look_up_variable(&var_name, &expr)
         // self.environment
         //     .borrow()
@@ -342,14 +358,18 @@ impl ExprVisitor for Interpreter {
     }
 
     fn visit_assign_expr(&mut self, expr: &AssignExpr) -> Result<DataType> {
-        let expr_rc: Rc<dyn Expr> = Rc::new(AssignExpr { var_name: expr.var_name.clone(), var_value: expr.var_value.clone() });
+        let expr_rc: Rc<dyn Expr> = Rc::new(AssignExpr {
+            var_name: expr.var_name.clone(),
+            var_value: expr.var_value.clone(),
+        });
         let value = self.evaluate(Rc::clone(expr.var_value.as_ref().unwrap()));
         let local: String = self.get_hash_key(Rc::clone(&expr_rc))?;
         if let Some(distance) = self.locals.borrow().get(&local) {
-            self.environment
-                .borrow()
-                .borrow_mut()
-                .assign_at(*distance, &expr.var_name, value.clone())?;
+            self.environment.borrow().borrow_mut().assign_at(
+                *distance,
+                &expr.var_name,
+                value.clone(),
+            )?;
         } else {
             self.globals
                 .borrow_mut()
@@ -375,10 +395,8 @@ impl ExprVisitor for Interpreter {
     fn visit_get_expr(&mut self, expr: &GetExpr) -> Result<DataType> {
         let object = self.evaluate(Rc::clone(&expr.object));
         match object {
-            DataType::Instance(instance) => {
-                instance.get(&expr.name)
-            },
-            _ => Err(anyhow!("Only instances have properties."))
+            DataType::Instance(instance) => instance.get(&expr.name),
+            _ => Err(anyhow!("Only instances have properties.")),
         }
     }
 
@@ -391,18 +409,63 @@ impl ExprVisitor for Interpreter {
                 instance.set(&expr.name, value.clone());
                 let cloned = expr.object.clone();
                 let var_expr = cloned.as_any().downcast_ref::<VarExpr>().unwrap();
-                self.globals.borrow_mut().assign(var_expr.var_name.lexeme.clone(), Some(DataType::Instance(instance)))?;
+                self.globals.borrow_mut().assign(
+                    var_expr.var_name.lexeme.clone(),
+                    Some(DataType::Instance(instance)),
+                )?;
                 Ok(value)
-            },
-            _ => Err(anyhow!("Only instances have fields."))
-        }
+            }
+            _ => Err(anyhow!("Only instances have fields.")),
+        };
     }
 
     fn visit_this_expr(&mut self, expr: &ThisExpr) -> Result<DataType> {
         let keyword = expr.keyword.clone();
 
-        let expr: Rc<dyn Expr> = Rc::new(ThisExpr { keyword: expr.keyword.clone() });
+        let expr: Rc<dyn Expr> = Rc::new(ThisExpr {
+            keyword: expr.keyword.clone(),
+        });
         self.look_up_variable(&keyword, &expr)
+    }
+
+    fn visit_super_expr(&mut self, expr: &SuperExpr) -> Result<DataType> {
+
+        let expr_rc: Rc<dyn Expr> = Rc::new(SuperExpr {
+            keyword: expr.keyword.clone(),
+            method: expr.method.clone(),
+        });
+
+        let local: String = self.get_hash_key(Rc::clone(&expr_rc))?;
+        return if let Some(distance) = self.locals.borrow().get(&local) {
+            let super_class = match self
+                .environment
+                .borrow()
+                .borrow()
+                .get_at(*distance, "super")
+            {
+                Some(DataType::Class(lox_super_class)) => lox_super_class,
+                _ => return Err(anyhow!("Lox super class not found")),
+            };
+
+            let object = match self
+                .environment
+                .borrow()
+                .borrow()
+                .get_at(*distance - 1, "this")
+            {
+                Some(DataType::Instance(lox_instance)) => lox_instance,
+                _ => return Err(anyhow!("Lox instance not found")),
+            };
+
+            let found_method = super_class.find_method(expr.method.lexeme.clone());
+            if let Some(found_method) = found_method {
+                Ok(DataType::Function(found_method.bind(object)))
+            } else {
+                return Err(anyhow!("Undefined property {}", expr.method.lexeme));
+            }
+        } else {
+            return Err(anyhow!("Unexpected error"));
+        };
     }
 }
 
@@ -420,7 +483,11 @@ impl StmtVisitor for Interpreter {
 
     fn visit_var_statement(&mut self, stmt: &VarStmt) -> Result<DataType> {
         match stmt.var_value.as_ref() {
-            None => self.environment.borrow().borrow_mut().define(stmt.var_name.lexeme.clone(), None),
+            None => self
+                .environment
+                .borrow()
+                .borrow_mut()
+                .define(stmt.var_name.lexeme.clone(), None),
             Some(stmt_line) => {
                 let value = self.evaluate(stmt_line.clone());
                 self.environment
@@ -435,10 +502,7 @@ impl StmtVisitor for Interpreter {
     fn visit_block_statement(&mut self, stmt: &BlockStmt) -> Result<DataType> {
         let env = Environment::new_with_parent_environment(self.environment.borrow().clone());
         let statements = Rc::new(stmt.statements.clone());
-        self.execute_block(
-            &statements,
-            env,
-        )
+        self.execute_block(&statements, env)
     }
 
     fn visit_if_statement(&mut self, stmt: &IfStmt) -> Result<DataType> {
@@ -465,7 +529,7 @@ impl StmtVisitor for Interpreter {
         while condition {
             condition = match &self.evaluate(Rc::clone(&stmt.condition)) {
                 DataType::Bool(true_value) => *true_value,
-                _ => return Err(anyhow!("condition should be boolean"))
+                _ => return Err(anyhow!("condition should be boolean")),
             };
 
             if condition {
@@ -495,27 +559,60 @@ impl StmtVisitor for Interpreter {
     }
 
     fn visit_class_statement(&mut self, stmt: &ClassStmt) -> Result<DataType> {
+        let mut super_class: Option<LoxClass> = None;
+
+        if let Some(class) = &stmt.super_class {
+            match self.evaluate(Rc::clone(class)) {
+                DataType::Class(evaluated_class) => super_class = Some(evaluated_class),
+                _ => return Err(anyhow!("Superclass must be a class.")),
+            }
+        }
+
         self.environment
             .borrow()
             .borrow_mut()
             .define(stmt.name.lexeme.clone(), None);
-        
+
+        if stmt.super_class.is_some() {
+            let environment: Environment = Environment::new_with_parent_environment(self.environment.borrow().clone());
+            self.environment.replace(
+                Rc::clone(&Rc::new(RefCell::new(environment)))
+            );
+
+            self.environment
+                .borrow()
+                .borrow_mut()
+                .define("super".to_string(), super_class.clone().map(|super_class|DataType::Class(super_class)));
+        }
 
         let mut methods: HashMap<String, LoxFunction> = HashMap::new();
 
         for method in &stmt.methods {
             let function = method.as_any().downcast_ref::<FunctionStmt>().unwrap();
-            let m = LoxFunction::new(function, &self.environment.borrow(), function.name.lexeme.eq_ignore_ascii_case("this"));
+            let m = LoxFunction::new(
+                function,
+                &self.environment.borrow(),
+                function.name.lexeme.eq_ignore_ascii_case("init"),
+            );
             methods.insert(function.name.lexeme.clone(), m);
         }
 
-        let lox_class: LoxClass = LoxClass { name: stmt.name.lexeme.clone(), methods };
+        let lox_class: LoxClass = LoxClass {
+            name: stmt.name.lexeme.clone(),
+            super_class: super_class.clone().map(|class| Box::new(class)),
+            methods,
+        };
+
+        if super_class.is_some() {
+            let parent_environment: Rc<RefCell<Environment>> = self.environment.borrow().borrow().parent_environment.clone().unwrap();
+            self.environment.replace(parent_environment);
+        }
 
         self.environment
             .borrow()
             .borrow_mut()
             .assign(stmt.name.lexeme.clone(), Some(DataType::Class(lox_class)))?;
-        
+
         Ok(DataType::Nil)
     }
 }

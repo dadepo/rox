@@ -1,7 +1,12 @@
 use anyhow::Result;
 
-use crate::expr::{AssignExpr, BinaryExpr, CallExpr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, ThisExpr, UnaryExpr, VarExpr};
-use crate::stmt::{BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, VarStmt, WhileStmt};
+use crate::expr::{
+    AssignExpr, BinaryExpr, CallExpr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr,
+    SuperExpr, ThisExpr, UnaryExpr, VarExpr,
+};
+use crate::stmt::{
+    BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, VarStmt, WhileStmt,
+};
 use crate::token::DataType;
 
 pub trait ExprVisitor {
@@ -16,6 +21,7 @@ pub trait ExprVisitor {
     fn visit_get_expr(&mut self, expr: &GetExpr) -> Result<DataType>;
     fn visit_set_expr(&mut self, expr: &SetExpr) -> Result<DataType>;
     fn visit_this_expr(&mut self, expr: &ThisExpr) -> Result<DataType>;
+    fn visit_super_expr(&mut self, expr: &SuperExpr) -> Result<DataType>;
 }
 
 pub trait StmtVisitor {

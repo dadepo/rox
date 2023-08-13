@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct Environment {
-    parent_environment: Option<Rc<RefCell<Environment>>>,
+    pub parent_environment: Option<Rc<RefCell<Environment>>>,
     values: HashMap<String, Option<DataType>>,
 }
 
@@ -36,7 +36,7 @@ impl Environment {
             // check parent
             match &self.parent_environment {
                 Some(parent_env) => parent_env.borrow().get(name),
-                None => None
+                None => None,
             }
         }
     }
@@ -54,7 +54,8 @@ impl Environment {
     }
 
     pub fn assign(&mut self, name: String, value: Option<DataType>) -> Result<()> {
-        if let std::collections::hash_map::Entry::Occupied(mut e) = self.values.entry(name.clone()) {
+        if let std::collections::hash_map::Entry::Occupied(mut e) = self.values.entry(name.clone())
+        {
             e.insert(value);
             Ok(())
         } else if self.parent_environment.is_some() {

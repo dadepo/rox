@@ -1,14 +1,20 @@
+use crate::expr::{
+    AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr,
+    SetExpr, SuperExpr, ThisExpr, UnaryExpr, VarExpr,
+};
+use crate::functions::Kind::Function;
+use crate::interpreter::Interpreter;
+use crate::stmt::{
+    BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt,
+    WhileStmt,
+};
+use crate::token::{DataType, Token};
+use crate::visitor::{ExprVisitor, StmtVisitor};
+use anyhow::anyhow;
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use anyhow::anyhow;
-use std::borrow::BorrowMut;
-use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, ThisExpr, UnaryExpr, VarExpr};
-use crate::functions::Kind::Function;
-use crate::interpreter::Interpreter;
-use crate::stmt::{BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt};
-use crate::token::{DataType, Token};
-use crate::visitor::{ExprVisitor, StmtVisitor};
 
 #[derive(PartialEq)]
 enum FunctionType {
@@ -55,10 +61,10 @@ impl<'a> Resolver<'a> {
         self.scopes.borrow_mut().pop();
     }
 
-    fn declare(&mut self, name: &Token) -> anyhow::Result<DataType>  {
+    fn declare(&mut self, name: &Token) -> anyhow::Result<DataType> {
         if let Some(scope) = self.scopes.borrow().last() {
             if scope.borrow().contains_key(&name.lexeme) {
-                return Err(anyhow!("Already a variable with this name in this scope."))
+                return Err(anyhow!("Already a variable with this name in this scope."));
             }
             scope.borrow_mut().insert(name.lexeme.to_string(), false);
         }
@@ -72,7 +78,11 @@ impl<'a> Resolver<'a> {
         Ok(DataType::Nil)
     }
 
-    fn resolve_function(&mut self, stmt: &FunctionStmt, function_type: FunctionType) -> anyhow::Result<DataType> {
+    fn resolve_function(
+        &mut self,
+        stmt: &FunctionStmt,
+        function_type: FunctionType,
+    ) -> anyhow::Result<DataType> {
         let enclosing_function = self.current_function.replace(function_type);
         self.begin_scope();
         for param in stmt.params.iter() {
@@ -91,7 +101,7 @@ impl<'a> Resolver<'a> {
         for (scope, map) in self.scopes.borrow().iter().rev().enumerate() {
             if map.borrow().contains_key(&name.lexeme) {
                 self.interpreter.resolve(expr, scope)?;
-                return Ok(DataType::Nil)
+                return Ok(DataType::Nil);
             }
         }
         Ok(DataType::Nil)
@@ -131,13 +141,13 @@ impl<'a> ExprVisitor for Resolver<'a> {
         let token = &expr.var_name;
         if !self.scopes.borrow().is_empty()
             && self
-            .scopes
-            .borrow()
-            .last()
-            .unwrap()
-            .borrow()
-            .get(&token.lexeme)
-            == Some(&false)
+                .scopes
+                .borrow()
+                .last()
+                .unwrap()
+                .borrow()
+                .get(&token.lexeme)
+                == Some(&false)
         {
             return Err(anyhow!("Can't read local variable in its own initializer."));
         } else {
@@ -180,7 +190,7 @@ impl<'a> ExprVisitor for Resolver<'a> {
 
     fn visit_this_expr(&mut self, expr: &ThisExpr) -> anyhow::Result<DataType> {
         if *self.current_class.borrow() == ClassType::None {
-            return Err(anyhow!("Can't use 'this' outside of a class."))
+            return Err(anyhow!("Can't use 'this' outside of a class."));
         }
 
         let rc_expr: Rc<dyn Expr> = Rc::new(ThisExpr {
@@ -190,8 +200,15 @@ impl<'a> ExprVisitor for Resolver<'a> {
         self.resolve_local(rc_expr, &expr.keyword)?;
         Ok(DataType::Nil)
     }
-}
 
+    fn visit_super_expr(&mut self, expr: &SuperExpr) -> anyhow::Result<DataType> {
+        let rc_expr: Rc<dyn Expr> = Rc::new(SuperExpr {
+            keyword: expr.keyword.clone(),
+            method: expr.method.clone(),
+        });
+        self.resolve_local(rc_expr, &expr.keyword)
+    }
+}
 
 impl<'a> StmtVisitor for Resolver<'a> {
     fn visit_print_statement(&mut self, stmt: &PrintStmt) -> anyhow::Result<DataType> {
@@ -246,11 +263,11 @@ impl<'a> StmtVisitor for Resolver<'a> {
 
     fn visit_return_statement(&mut self, stmt: &ReturnStmt) -> anyhow::Result<DataType> {
         if *self.current_function.borrow() == FunctionType::None {
-            return Err(anyhow!("Can't return from top-level code."))
+            return Err(anyhow!("Can't return from top-level code."));
         }
         if let Some(return_value) = &stmt.value {
             if *self.current_function.borrow() == FunctionType::Initializer {
-                return Err(anyhow!("Can't return a value from an initializer."))
+                return Err(anyhow!("Can't return a value from an initializer."));
             }
             return_value.accept(self);
         }
@@ -261,6 +278,29 @@ impl<'a> StmtVisitor for Resolver<'a> {
         let enclosing_class = self.current_class.replace(ClassType::Class);
         self.declare(&stmt.name)?;
         self.define(&stmt.name)?;
+
+        if let Some(super_class) = &stmt.super_class {
+            let super_class = super_class.as_any().downcast_ref::<VarExpr>().unwrap();
+            if stmt
+                .name
+                .lexeme
+                .eq_ignore_ascii_case(&super_class.var_name.lexeme.to_string())
+            {
+                return Err(anyhow!("A class can't inherit from itself."));
+            }
+            super_class.accept(self);
+        }
+
+        if stmt.super_class.is_some() {
+            self.begin_scope();
+            self.scopes
+                .borrow()
+                .last()
+                .borrow_mut()
+                .unwrap()
+                .borrow_mut()
+                .insert("super".to_string(), true);
+        }
 
         self.begin_scope();
 
@@ -282,6 +322,11 @@ impl<'a> StmtVisitor for Resolver<'a> {
         }
 
         self.end_scope();
+
+        if stmt.super_class.is_some() {
+            self.end_scope();
+        }
+
         self.current_class.replace(enclosing_class);
         Ok(DataType::Nil)
     }

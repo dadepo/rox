@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 
-use lazy_static::lazy_static;
 use crate::class::{LoxClass, LoxInstance};
 use crate::functions::{LoxFunction, LoxNative};
+use lazy_static::lazy_static;
 
 lazy_static! {
     pub static ref KEYWORDS: HashMap<&'static str, TokenType> = {

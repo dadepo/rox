@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use anyhow::Result;
 
-use crate::expr::Expr;
+use crate::expr::{Expr, VarExpr};
 use crate::token::{DataType, Token};
 use crate::visitor::StmtVisitor;
 
@@ -86,7 +86,7 @@ impl Stmt for IfStmt {
 
 pub struct WhileStmt {
     pub condition: Rc<dyn Expr>,
-    pub body: Rc<dyn Stmt>
+    pub body: Rc<dyn Stmt>,
 }
 
 impl Stmt for WhileStmt {
@@ -132,7 +132,8 @@ impl Stmt for ReturnStmt {
 
 pub struct ClassStmt {
     pub name: Token,
-    pub methods: Vec<Rc<dyn Stmt>>
+    pub super_class: Option<Rc<dyn Expr>>,
+    pub methods: Vec<Rc<dyn Stmt>>,
 }
 
 impl Stmt for ClassStmt {

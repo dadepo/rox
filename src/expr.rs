@@ -6,7 +6,6 @@ use std::rc::Rc;
 use crate::token::{DataType, Token};
 use crate::visitor::ExprVisitor;
 
-
 pub trait Expr {
     fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType;
     fn as_any(&self) -> &dyn Any;
@@ -102,7 +101,7 @@ impl Expr for AssignExpr {
 pub struct LogicalExpr {
     pub left: Rc<dyn Expr>,
     pub operator: Token,
-    pub right: Rc<dyn Expr>
+    pub right: Rc<dyn Expr>,
 }
 
 impl Expr for LogicalExpr {
@@ -118,7 +117,7 @@ impl Expr for LogicalExpr {
 pub struct CallExpr {
     pub callee: Rc<dyn Expr>,
     pub paren: Token,
-    pub arguments: Vec<Rc<dyn Expr>>
+    pub arguments: Vec<Rc<dyn Expr>>,
 }
 
 impl Expr for CallExpr {
@@ -132,7 +131,7 @@ impl Expr for CallExpr {
 
 pub struct GetExpr {
     pub object: Rc<dyn Expr>,
-    pub name: Token
+    pub name: Token,
 }
 
 impl Expr for GetExpr {
@@ -148,7 +147,7 @@ impl Expr for GetExpr {
 pub struct SetExpr {
     pub object: Rc<dyn Expr>,
     pub name: Token,
-    pub value: Rc<dyn Expr>
+    pub value: Rc<dyn Expr>,
 }
 
 impl Expr for SetExpr {
@@ -162,12 +161,27 @@ impl Expr for SetExpr {
 }
 
 pub struct ThisExpr {
-    pub keyword: Token
+    pub keyword: Token,
 }
 
 impl Expr for ThisExpr {
     fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
         visitor.visit_this_expr(self).unwrap()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+pub struct SuperExpr {
+    pub keyword: Token,
+    pub method: Token,
+}
+
+impl Expr for SuperExpr {
+    fn accept(&self, visitor: &mut dyn ExprVisitor) -> DataType {
+        visitor.visit_super_expr(self).unwrap()
     }
 
     fn as_any(&self) -> &dyn Any {

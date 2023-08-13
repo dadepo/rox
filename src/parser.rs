@@ -5,11 +5,22 @@ use std::rc::Rc;
 use anyhow::anyhow;
 use anyhow::Result;
 
-use crate::expr::{AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr, SetExpr, ThisExpr, UnaryExpr, VarExpr};
+use crate::expr::{
+    AssignExpr, BinaryExpr, CallExpr, Expr, GetExpr, GroupingExpr, LiteralExpr, LogicalExpr,
+    SetExpr, SuperExpr, ThisExpr, UnaryExpr, VarExpr,
+};
 use crate::functions::Kind;
 use crate::scanner::error;
-use crate::stmt::{BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt, WhileStmt};
-use crate::token::TokenType::{AND, BANG, BANGEQUAL, CLASS, COMMA, DOT, ELSE, EOF, EQUAL, EQUALEQUAL, FALSE, FOR, FUN, GREATER, GREATEREQUAL, IDENTIFIER, IF, LEFTBRACE, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL, NUMBER, OR, PLUS, PRINT, RETURN, RIGHTBRACE, RIGHTPAREN, SEMICOLON, SLASH, STAR, STRING, THIS, TRUE, VAR, WHILE};
+use crate::stmt::{
+    BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt,
+    WhileStmt,
+};
+use crate::token::TokenType::{
+    AND, BANG, BANGEQUAL, CLASS, COMMA, DOT, ELSE, EOF, EQUAL, EQUALEQUAL, FALSE, FOR, FUN,
+    GREATER, GREATEREQUAL, IDENTIFIER, IF, LEFTBRACE, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL,
+    NUMBER, OR, PLUS, PRINT, RETURN, RIGHTBRACE, RIGHTPAREN, SEMICOLON, SLASH, STAR, STRING, SUPER,
+    THIS, TRUE, VAR, WHILE,
+};
 use crate::token::{DataType, Token, TokenType};
 
 #[derive(Default)]
@@ -48,7 +59,7 @@ impl Parser {
         let result = if self.match_token(vec![CLASS]) {
             self.class_declaration()
         } else if self.match_token(vec![FUN]) {
-          self.function(Kind::Function)
+            self.function(Kind::Function)
         } else if self.match_token(vec![VAR]) {
             self.var_declaration()
         } else {
@@ -66,6 +77,14 @@ impl Parser {
 
     fn class_declaration(&mut self) -> Result<Rc<dyn Stmt>> {
         let name = self.consume(IDENTIFIER)?;
+        let mut super_class: Option<Rc<dyn Expr>> = None;
+
+        if self.match_token(vec![LESS]) {
+            self.consume(IDENTIFIER)?;
+            super_class = Some(Rc::new(VarExpr {
+                var_name: self.previous(),
+            }));
+        }
         self.consume(LEFTBRACE)?;
 
         let mut methods: Vec<Rc<dyn Stmt>> = vec![];
@@ -77,10 +96,10 @@ impl Parser {
 
         Ok(Rc::new(ClassStmt {
             name,
-            methods
+            super_class,
+            methods,
         }))
     }
-
 
     fn function(&mut self, _kind: Kind) -> Result<Rc<dyn Stmt>> {
         let name = self.consume(IDENTIFIER)?;
@@ -88,7 +107,6 @@ impl Parser {
         let mut params = vec![];
         if !self.check(RIGHTPAREN) {
             loop {
-
                 if params.len() >= 255 {
                     dbg!("Can't have more than 255 parameters.");
                 }
@@ -102,11 +120,7 @@ impl Parser {
         self.consume(LEFTBRACE)?;
         let body = self.block()?;
 
-        Ok(Rc::new(FunctionStmt {
-            name,
-            params,
-            body
-        }))
+        Ok(Rc::new(FunctionStmt { name, params, body }))
     }
 
     fn var_declaration(&mut self) -> Result<Rc<dyn Stmt>> {
@@ -152,7 +166,7 @@ impl Parser {
         } else if self.match_token(vec![VAR]) {
             Some(self.var_declaration()?)
         } else {
-           Some(self.expression_statement()?)
+            Some(self.expression_statement()?)
         };
 
         let mut condition = if !self.check(SEMICOLON) {
@@ -174,11 +188,20 @@ impl Parser {
         let mut body = self.statement()?;
 
         if increment.is_some() {
-            body = Rc::new(BlockStmt { statements: vec![body, Rc::new(ExprStmt { expression: increment.unwrap() })] })
+            body = Rc::new(BlockStmt {
+                statements: vec![
+                    body,
+                    Rc::new(ExprStmt {
+                        expression: increment.unwrap(),
+                    }),
+                ],
+            })
         }
 
         if condition.is_none() {
-            condition = Some(Rc::new(LiteralExpr { value: Some(DataType::Bool(true)) }))
+            condition = Some(Rc::new(LiteralExpr {
+                value: Some(DataType::Bool(true)),
+            }))
         };
 
         body = Rc::new(WhileStmt {
@@ -187,7 +210,9 @@ impl Parser {
         });
 
         if init.is_some() {
-            body = Rc::new(BlockStmt { statements: vec![init.unwrap(), body] })
+            body = Rc::new(BlockStmt {
+                statements: vec![init.unwrap(), body],
+            })
         }
 
         Ok(body)
@@ -280,8 +305,7 @@ impl Parser {
                     object: Rc::clone(&get.object),
                     name: get.name.clone(),
                     value,
-                }))
-
+                }));
             } else {
                 dbg!("error");
             }
@@ -298,7 +322,7 @@ impl Parser {
             expr = Rc::new(LogicalExpr {
                 left: expr,
                 operator,
-                right
+                right,
             });
         }
         Ok(expr)
@@ -312,7 +336,7 @@ impl Parser {
             expr = Rc::new(LogicalExpr {
                 left: expr,
                 operator,
-                right
+                right,
             });
         }
         Ok(expr)
@@ -396,12 +420,9 @@ impl Parser {
                 expr = self.finish_call(&expr)?;
             } else if self.match_token(vec![DOT]) {
                 let name = self.consume(IDENTIFIER)?;
-                expr = Rc::new(GetExpr {
-                    object: expr,
-                    name,
-                })
+                expr = Rc::new(GetExpr { object: expr, name })
             } else {
-                break
+                break;
             }
         }
 
@@ -417,7 +438,7 @@ impl Parser {
                 }
                 arguments.push(self.expression()?);
                 if !self.match_token(vec![COMMA]) {
-                    break
+                    break;
                 }
             }
         }
@@ -453,8 +474,17 @@ impl Parser {
             }));
         }
 
+        if self.match_token(vec![SUPER]) {
+            let keyword = self.previous();
+            self.consume(DOT)?;
+            let method = self.consume(IDENTIFIER)?;
+            return Ok(Rc::new(SuperExpr { keyword, method }));
+        }
+
         if self.match_token(vec![THIS]) {
-            return Ok(Rc::new(ThisExpr { keyword: self.previous() }))
+            return Ok(Rc::new(ThisExpr {
+                keyword: self.previous(),
+            }));
         }
 
         if self.match_token(vec![IDENTIFIER]) {
@@ -469,7 +499,6 @@ impl Parser {
                 return Ok(Rc::new(GroupingExpr { expression }));
             }
         }
-
 
         Err(anyhow!("Unknown token"))
     }
@@ -505,9 +534,7 @@ impl Parser {
             false
         } else {
             match self.peek() {
-                Some(next) => {
-                    next.token_type == token_type
-                },
+                Some(next) => next.token_type == token_type,
                 None => false,
             }
         }
