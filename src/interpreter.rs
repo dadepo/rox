@@ -247,7 +247,7 @@ impl ExprVisitor for Interpreter {
             TokenType::PLUS => {
                 let left = match left {
                     DataType::Number(_) | DataType::String(_) => left,
-                    _ => return Err(anyhow!("Can only use * with numbers and strings")),
+                    _ => return Err(anyhow!("Can only use + with numbers and strings")),
                 };
                 let right = match right {
                     DataType::Number(_) | DataType::String(_) => right,
