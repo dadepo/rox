@@ -323,6 +323,7 @@ impl ExprVisitor for Interpreter {
         let function: Rc<dyn LoxCallable> = match callee {
             DataType::Function(f) => Rc::new(f),
             DataType::Class(class) => Rc::new(class),
+            DataType::NativeFunction(nf) => nf.function,
             _ => return Err(anyhow!("Can only call functions and classes.")),
         };
 
