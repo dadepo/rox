@@ -100,7 +100,7 @@ impl LoxCallable for LoxFunction {
         let statements = self.clone().body;
 
         match interpreter.execute_block(&statements, environment) {
-            Ok(_) => {
+            Ok(value) => {
                 if self.is_init {
                     return self
                         .closure
@@ -108,7 +108,7 @@ impl LoxCallable for LoxFunction {
                         .get_at(0, "this")
                         .ok_or(anyhow!("cannot find this"));
                 }
-                Ok(DataType::Nil)
+                Ok(value)
             }
             Err(err) => {
                 if self.is_init {
@@ -146,6 +146,10 @@ impl Clock {
 }
 
 impl LoxCallable for Clock {
+    fn arity(&self) -> usize {
+        0
+    }
+
     fn call(
         &self,
         _: &mut Interpreter,
@@ -157,10 +161,6 @@ impl LoxCallable for Clock {
                 Err(_) => DataType::Nil,
             },
         )
-    }
-
-    fn arity(&self) -> usize {
-        0
     }
 }
 
