@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "rox_script",
+    "rox_lang"
+]
