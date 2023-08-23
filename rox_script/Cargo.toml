@@ -1,5 +1,5 @@
 [package]
-name = "rox"
+name = "rox_script"
 version = "0.1.0"
 edition = "2021"
 
