@@ -1,8 +1,8 @@
-use std::{env, fs, process};
 use std::rc::Rc;
+use std::{env, fs, process};
 
-use rustyline::{DefaultEditor, Result};
 use rustyline::error::ReadlineError;
+use rustyline::{DefaultEditor, Result};
 
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;

@@ -428,7 +428,6 @@ impl ExprVisitor for Interpreter {
     }
 
     fn visit_super_expr(&mut self, expr: &SuperExpr) -> Result<DataType> {
-
         let expr_rc: Rc<dyn Expr> = Rc::new(SuperExpr {
             keyword: expr.keyword.clone(),
             method: expr.method.clone(),
@@ -572,15 +571,15 @@ impl StmtVisitor for Interpreter {
             .define(stmt.name.lexeme.clone(), None);
 
         if stmt.super_class.is_some() {
-            let environment: Environment = Environment::new_with_parent_environment(self.environment.borrow().clone());
-            self.environment.replace(
-                Rc::clone(&Rc::new(RefCell::new(environment)))
-            );
-
+            let environment: Environment =
+                Environment::new_with_parent_environment(self.environment.borrow().clone());
             self.environment
-                .borrow()
-                .borrow_mut()
-                .define("super".to_string(), super_class.clone().map(DataType::Class));
+                .replace(Rc::clone(&Rc::new(RefCell::new(environment))));
+
+            self.environment.borrow().borrow_mut().define(
+                "super".to_string(),
+                super_class.clone().map(DataType::Class),
+            );
         }
 
         let mut methods: HashMap<String, LoxFunction> = HashMap::new();
@@ -602,7 +601,13 @@ impl StmtVisitor for Interpreter {
         };
 
         if super_class.is_some() {
-            let parent_environment: Rc<RefCell<Environment>> = self.environment.borrow().borrow().parent_environment.clone().unwrap();
+            let parent_environment: Rc<RefCell<Environment>> = self
+                .environment
+                .borrow()
+                .borrow()
+                .parent_environment
+                .clone()
+                .unwrap();
             self.environment.replace(parent_environment);
         }
 

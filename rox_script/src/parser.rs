@@ -12,13 +12,13 @@ use crate::stmt::{
     BlockStmt, ClassStmt, ExprStmt, FunctionStmt, IfStmt, PrintStmt, ReturnStmt, Stmt, VarStmt,
     WhileStmt,
 };
-use crate::token::{DataType, Token, TokenType};
 use crate::token::TokenType::{
     AND, BANG, BANGEQUAL, CLASS, COMMA, DOT, ELSE, EOF, EQUAL, EQUALEQUAL, FALSE, FOR, FUN,
     GREATER, GREATEREQUAL, IDENTIFIER, IF, LEFTBRACE, LEFTPAREN, LESS, LESSEQUAL, MINUS, NIL,
     NUMBER, OR, PLUS, PRINT, RETURN, RIGHTBRACE, RIGHTPAREN, SEMICOLON, SLASH, STAR, STRING, SUPER,
     THIS, TRUE, VAR, WHILE,
 };
+use crate::token::{DataType, Token, TokenType};
 
 #[derive(Default)]
 pub struct Parser {
