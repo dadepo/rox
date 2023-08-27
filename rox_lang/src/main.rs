@@ -1,8 +1,11 @@
 use crate::chunk::{Chunk, OpCode};
 use crate::debug::disassemble_chunk;
+use crate::vm::VM;
+use std::rc::Rc;
 
 mod chunk;
 mod debug;
+mod vm;
 
 fn main() -> anyhow::Result<()> {
     let mut chunk: Chunk = Chunk::new();
@@ -13,5 +16,9 @@ fn main() -> anyhow::Result<()> {
     chunk.write(constant_index, 123);
     chunk.write(OpCode::OpReturn as u8, 123);
 
-    disassemble_chunk(&chunk, "test chunk")
+    disassemble_chunk(&chunk, "test chunk")?;
+
+    let mut vm = VM::new();
+    vm.interpret(Rc::new(chunk));
+    Ok(())
 }

@@ -1,8 +1,23 @@
+use crate::chunk::OpCode::OpReturn;
+use anyhow::anyhow;
+
 #[repr(u8)]
 #[derive(Debug)]
 pub enum OpCode {
     OpConstant,
     OpReturn,
+}
+
+impl TryFrom<&u8> for OpCode {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(OpCode::OpConstant),
+            1 => Ok(OpReturn),
+            _ => Err(anyhow!("No enum variant for {value}")),
+        }
+    }
 }
 
 /// Chunk has a constant field which when a constant
