@@ -17,8 +17,10 @@ fn main() -> anyhow::Result<()> {
     chunk.write(OpCode::OpReturn as u8, 123);
 
     disassemble_chunk(&chunk, "test chunk")?;
+    println!("== End manual disassemble ==");
 
     let mut vm = VM::new();
     vm.interpret(Rc::new(chunk));
+
     Ok(())
 }

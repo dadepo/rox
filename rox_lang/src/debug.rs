@@ -12,7 +12,7 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) -> anyhow::Result<()> {
 
 /// returns the offset of the next opcode
 /// Prints ByteOffset SourceOffset Opcode Operand
-fn disassemble_instruction(chunk: &Chunk, offset: usize) -> anyhow::Result<usize> {
+pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> anyhow::Result<usize> {
     // The offset in the byte code
     print!("{offset:04}");
     // The corresponding line of the byte code in source code

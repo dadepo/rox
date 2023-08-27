@@ -1,6 +1,8 @@
 use crate::chunk::{Chunk, OpCode};
+use crate::debug::disassemble_instruction;
 use crate::vm::InterpretResult::InterpretOk;
 use anyhow::anyhow;
+use std::ops::Deref;
 use std::rc::Rc;
 
 pub enum InterpretResult {
@@ -12,6 +14,7 @@ pub enum InterpretResult {
 pub struct VM {
     pub chunk: Rc<Chunk>,
     pub ip: u8,
+    pub debug_trace_execution: bool,
 }
 
 impl VM {
@@ -19,6 +22,7 @@ impl VM {
         Self {
             chunk: Rc::new(Chunk::default()),
             ip: 0,
+            debug_trace_execution: true,
         }
     }
 
@@ -32,6 +36,10 @@ impl VM {
 
     pub fn run(&mut self) -> anyhow::Result<InterpretResult> {
         loop {
+            if self.debug_trace_execution {
+                disassemble_instruction(self.chunk.deref(), self.ip as usize)?;
+            }
+
             let ip = self.get_next_ip();
             let instruction: OpCode = self
                 .chunk
@@ -47,12 +55,11 @@ impl VM {
                         .code
                         .get(ip)
                         .ok_or(anyhow!("No instruction found at index"))?;
-                    let constant_value = self
+                    let _constant_value = self
                         .chunk
                         .constant
                         .get(*constant_index as usize)
                         .ok_or(anyhow!("No constnt value found at index"))?;
-                    println!("'{}'", constant_value);
                 }
                 OpCode::OpReturn => return Ok(InterpretOk),
             }
