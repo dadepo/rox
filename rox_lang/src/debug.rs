@@ -14,13 +14,13 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) -> anyhow::Result<()> {
 /// Prints ByteOffset SourceOffset Opcode Operand
 fn disassemble_instruction(chunk: &Chunk, offset: usize) -> anyhow::Result<usize> {
     // The offset in the byte code
-    print!("{:04}", offset);
+    print!("{offset:04}");
     // The corresponding line of the byte code in source code
     if offset > 0 && chunk.lines.get(offset) == chunk.lines.get(offset - 1) {
         print!(" | ");
     } else {
         print!(
-            "{:>4?} ",
+            "{:>4} ",
             chunk
                 .lines
                 .get(offset)
@@ -33,7 +33,7 @@ fn disassemble_instruction(chunk: &Chunk, offset: usize) -> anyhow::Result<usize
         Some(code) => {
             match code {
                 _ if *code == OpCode::OpReturn as u8 => {
-                    println!("OpReturn");
+                    println!("{:?}", OpCode::OpReturn);
                     Ok(offset + 1_usize)
                 }
                 _ if *code == OpCode::OpConstant as u8 => {
@@ -43,7 +43,7 @@ fn disassemble_instruction(chunk: &Chunk, offset: usize) -> anyhow::Result<usize
                         .get(offset + 1)
                         .ok_or(anyhow!("Constant index not found"))?;
 
-                    print!("{:<16} {:>4} ", "OpConstant", constant_index);
+                    print!("{:<16?} {:>4} ", OpCode::OpConstant, constant_index);
                     println!(
                         "'{}'",
                         chunk
