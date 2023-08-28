@@ -15,6 +15,7 @@ pub struct VM {
     pub chunk: Rc<Chunk>,
     pub ip: u8,
     pub debug_trace_execution: bool,
+    pub stack: Vec<f64>
 }
 
 impl VM {
@@ -23,6 +24,7 @@ impl VM {
             chunk: Rc::new(Chunk::default()),
             ip: 0,
             debug_trace_execution: true,
+            stack: vec![]
         }
     }
 
@@ -37,6 +39,14 @@ impl VM {
     pub fn run(&mut self) -> anyhow::Result<InterpretResult> {
         loop {
             if self.debug_trace_execution {
+                print!("          ");
+                for value in &self.stack {
+                    print!("[");
+                    print!("{}", value);
+                    print!("]");
+                }
+                println!();
+
                 disassemble_instruction(self.chunk.deref(), self.ip as usize)?;
             }
 
@@ -55,15 +65,27 @@ impl VM {
                         .code
                         .get(ip)
                         .ok_or(anyhow!("No instruction found at index"))?;
-                    let _constant_value = self
+                    let constant_value = self
                         .chunk
                         .constant
                         .get(*constant_index as usize)
-                        .ok_or(anyhow!("No constnt value found at index"))?;
+                        .ok_or(anyhow!("No constant value found at index"))?;
+                    self.push(*constant_value);
                 }
-                OpCode::OpReturn => return Ok(InterpretOk),
+                OpCode::OpReturn => {
+                    println!("{}", self.pop()?);
+                    return Ok(InterpretOk)
+                },
             }
         }
+    }
+
+    pub fn push(&mut self, value: f64) {
+        self.stack.push(value);
+    }
+
+    pub fn pop(&mut self) -> anyhow::Result<f64> {
+        self.stack.pop().ok_or(anyhow!("Cannot pop empty stack"))
     }
 
     fn get_next_ip(&mut self) -> usize {
