@@ -11,9 +11,21 @@ fn main() -> anyhow::Result<()> {
     let mut chunk: Chunk = Chunk::new();
 
     let constant_index = chunk.add_const(1.2);
-
     chunk.write(OpCode::OpConstant as u8, 123);
     chunk.write(constant_index, 123);
+
+    let constant_index = chunk.add_const(3.4);
+    chunk.write(OpCode::OpConstant as u8, 123);
+    chunk.write(constant_index, 123);
+
+    chunk.write(OpCode::OpAdd as u8, 123);
+
+    let constant_index = chunk.add_const(5.6);
+    chunk.write(OpCode::OpConstant as u8, 123);
+    chunk.write(constant_index, 123);
+
+    chunk.write(OpCode::OpDivide as u8, 123);
+
     chunk.write(OpCode::OpNegate as u8, 123);
     chunk.write(OpCode::OpReturn as u8, 123);
 

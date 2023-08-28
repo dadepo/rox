@@ -5,6 +5,13 @@ use anyhow::anyhow;
 use std::ops::Deref;
 use std::rc::Rc;
 
+enum BinaryOp {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
 pub enum InterpretResult {
     InterpretOk,
     InterpretCompileError,
@@ -15,7 +22,7 @@ pub struct VM {
     pub chunk: Rc<Chunk>,
     pub ip: u8,
     pub debug_trace_execution: bool,
-    pub stack: Vec<f64>
+    pub stack: Vec<f64>,
 }
 
 impl VM {
@@ -24,7 +31,7 @@ impl VM {
             chunk: Rc::new(Chunk::default()),
             ip: 0,
             debug_trace_execution: true,
-            stack: vec![]
+            stack: vec![],
         }
     }
 
@@ -72,14 +79,26 @@ impl VM {
                         .ok_or(anyhow!("No constant value found at index"))?;
                     self.push(*constant_value);
                 }
+                OpCode::OpAdd => {
+                    self.binary_op(BinaryOp::Add)?;
+                }
+                OpCode::OpSubtract => {
+                    self.binary_op(BinaryOp::Subtract)?;
+                }
+                OpCode::OpMultiply => {
+                    self.binary_op(BinaryOp::Multiply)?;
+                }
+                OpCode::OpDivide => {
+                    self.binary_op(BinaryOp::Divide)?;
+                }
                 OpCode::OpNegate => {
                     let value = self.pop()?;
                     self.push(-value)
-                },
+                }
                 OpCode::OpReturn => {
                     println!("{}", self.pop()?);
-                    return Ok(InterpretOk)
-                },
+                    return Ok(InterpretOk);
+                }
             }
         }
     }
@@ -90,6 +109,26 @@ impl VM {
 
     pub fn pop(&mut self) -> anyhow::Result<f64> {
         self.stack.pop().ok_or(anyhow!("Cannot pop empty stack"))
+    }
+
+    fn binary_op(&mut self, op: BinaryOp) -> anyhow::Result<()> {
+        let b = self.pop()?;
+        let a = self.pop()?;
+        match op {
+            BinaryOp::Add => {
+                self.push(a + b);
+            }
+            BinaryOp::Subtract => {
+                self.push(a - b);
+            }
+            BinaryOp::Multiply => {
+                self.push(a * b);
+            }
+            BinaryOp::Divide => {
+                self.push(a / b);
+            }
+        }
+        Ok(())
     }
 
     fn get_next_ip(&mut self) -> usize {

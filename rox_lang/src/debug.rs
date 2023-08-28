@@ -32,11 +32,14 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> anyhow::Result<u
         None => Err(anyhow!("No op code at given offset {offset}")),
         Some(code) => {
             match code {
-                _ if *code == OpCode::OpReturn as u8 => {
-                    Ok(simple_instruction(&OpCode::OpReturn, offset))
-                }
-                _ if *code == OpCode::OpNegate as u8 => {
-                    Ok(simple_instruction(&OpCode::OpNegate, offset))
+                _ if *code == OpCode::OpReturn as u8
+                    || *code == OpCode::OpAdd as u8
+                    || *code == OpCode::OpSubtract as u8
+                    || *code == OpCode::OpMultiply as u8
+                    || *code == OpCode::OpDivide as u8
+                    || *code == OpCode::OpNegate as u8 =>
+                {
+                    Ok(simple_instruction(&code.try_into()?, offset))
                 }
                 _ if *code == OpCode::OpConstant as u8 => {
                     // Get the index of the operand in the adjacent index
