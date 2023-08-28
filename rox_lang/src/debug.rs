@@ -33,8 +33,10 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> anyhow::Result<u
         Some(code) => {
             match code {
                 _ if *code == OpCode::OpReturn as u8 => {
-                    println!("{:?}", OpCode::OpReturn);
-                    Ok(offset + 1_usize)
+                    Ok(simple_instruction(&OpCode::OpReturn, offset))
+                }
+                _ if *code == OpCode::OpNegate as u8 => {
+                    Ok(simple_instruction(&OpCode::OpNegate, offset))
                 }
                 _ if *code == OpCode::OpConstant as u8 => {
                     // Get the index of the operand in the adjacent index
@@ -59,4 +61,9 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> anyhow::Result<u
             }
         }
     }
+}
+
+fn simple_instruction(name: &OpCode, offset: usize) -> usize {
+    println!("{:?}", name);
+    offset + 1_usize
 }

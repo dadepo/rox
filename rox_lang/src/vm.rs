@@ -72,6 +72,10 @@ impl VM {
                         .ok_or(anyhow!("No constant value found at index"))?;
                     self.push(*constant_value);
                 }
+                OpCode::OpNegate => {
+                    let value = self.pop()?;
+                    self.push(-value)
+                },
                 OpCode::OpReturn => {
                     println!("{}", self.pop()?);
                     return Ok(InterpretOk)

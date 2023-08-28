@@ -1,10 +1,11 @@
-use crate::chunk::OpCode::OpReturn;
+use crate::chunk::OpCode::{OpNegate, OpReturn};
 use anyhow::anyhow;
 
 #[repr(u8)]
 #[derive(Debug)]
 pub enum OpCode {
     OpConstant,
+    OpNegate,
     OpReturn,
 }
 
@@ -14,7 +15,8 @@ impl TryFrom<&u8> for OpCode {
     fn try_from(value: &u8) -> Result<Self, Self::Error> {
         match value {
             0 => Ok(OpCode::OpConstant),
-            1 => Ok(OpReturn),
+            1 => Ok(OpNegate),
+            2 => Ok(OpReturn),
             _ => Err(anyhow!("No enum variant for {value}")),
         }
     }
