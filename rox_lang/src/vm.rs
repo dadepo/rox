@@ -4,6 +4,7 @@ use crate::vm::InterpretResult::InterpretOk;
 use anyhow::anyhow;
 use std::ops::Deref;
 use std::rc::Rc;
+use crate::compiler::compile;
 
 enum BinaryOp {
     Add,
@@ -35,12 +36,9 @@ impl VM {
         }
     }
 
-    pub fn interpret(&mut self, chunk: Rc<Chunk>) -> InterpretResult {
-        self.chunk = chunk;
-        match self.run() {
-            Ok(result) => result,
-            Err(_) => InterpretResult::InterpretRuntimeError,
-        }
+    pub fn interpret(&mut self, source: &str) -> InterpretResult {
+        compile(source);
+        InterpretOk
     }
 
     pub fn run(&mut self) -> anyhow::Result<InterpretResult> {
