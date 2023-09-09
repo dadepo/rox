@@ -33,7 +33,7 @@ pub struct Scanner {
     pub start_index: usize,
     pub current_index: usize,
     pub line: i8,
-    pub code: String
+    pub code: Vec<char>
 }
 
 impl Scanner {
@@ -42,22 +42,22 @@ impl Scanner {
             start_index: 0,
             current_index: 0,
             line: 1,
-            code
+            code: code.chars().collect()
         }
     }
 
     pub fn scan_token(&mut self) -> Token {
-        self.skip_white_spaces();
-        self.start_index = self.current_index;
         if self.is_at_end() {
             self.make_token(TokenType::EOF)
         } else {
+            self.skip_white_spaces();
+            self.start_index = self.current_index;
             let c: char = self.advance();
-            if Scanner::is_alpha(c) {
-                return self.identifier();
-            }
             if Scanner::is_digit(c) {
                 return self.number();
+            }
+            if Scanner::is_alpha(c) {
+                return self.identifier();
             }
 
             match c {
@@ -99,7 +99,7 @@ impl Scanner {
 
     fn skip_white_spaces(&mut self) {
         loop {
-            let c = self.peek().expect("TODO");
+            let c = self.peek().expect("peek error skip_white_spaces");
             match c {
                 ' ' | '\r' | '\t' => {
                     self.advance();
@@ -130,9 +130,9 @@ impl Scanner {
         if self.is_at_end() {
             false
         } else {
-            match self.code.as_bytes().get(self.current_index) {
+            match self.code.get(self.current_index).copied() {
                 Some(current_char) => {
-                    if *current_char as char == expected {
+                    if current_char == expected {
                         self.current_index += 1;
                         true
                     } else {
@@ -155,13 +155,13 @@ impl Scanner {
     }
 
     fn identifier_type(&mut self) -> TokenType {
-        match self.code.as_bytes().get(0usize).map(|index| *index as char) {
+        match self.code.get(0usize).copied() {
             Some('a') => self.check_keyword(1, 2, "and", TokenType::AND),
             Some('c') => self.check_keyword(1, 4, "lass", TokenType::CLASS),
             Some('e') => self.check_keyword(1, 3, "lse", TokenType::ELSE),
             Some('f') => {
                 return if self.current_index - self.start_index > 1 {
-                    return match self.code.as_bytes().get(1usize).map(|index| *index as char) {
+                    return match self.code.get(1usize).copied() {
                         Some('a') => self.check_keyword(2, 3, "lse", TokenType::ELSE),
                         Some('o') => self.check_keyword(2, 1, "r", TokenType::FOR),
                         Some('u') => self.check_keyword(2, 1, "n", TokenType::FUN),
@@ -172,14 +172,14 @@ impl Scanner {
                 };
             },
             Some('i') => self.check_keyword(1, 1, "f", TokenType::IF),
-            Some('n') => self.check_keyword(1, 2, "il", TokenType::IF),
-            Some('o') => self.check_keyword(1, 1, "r", TokenType::IF),
-            Some('p') => self.check_keyword(1, 4, "rint", TokenType::IF),
-            Some('r') => self.check_keyword(1, 5, "eturn", TokenType::IF),
-            Some('s') => self.check_keyword(1, 4, "uper", TokenType::IF),
+            Some('n') => self.check_keyword(1, 2, "il", TokenType::NIL),
+            Some('o') => self.check_keyword(1, 1, "r", TokenType::OR),
+            Some('p') => self.check_keyword(1, 4, "rint", TokenType::PRINT),
+            Some('r') => self.check_keyword(1, 5, "eturn", TokenType::RETURN),
+            Some('s') => self.check_keyword(1, 4, "uper", TokenType::SUPER),
             Some('t') => {
                 return if self.current_index - self.start_index > 1 {
-                    return match self.code.as_bytes().get(1usize).map(|index| *index as char) {
+                    return match self.code.get(1usize).copied() {
                         Some('h') => self.check_keyword(2, 2, "is", TokenType::THIS),
                         Some('r') => self.check_keyword(2, 2, "ue", TokenType::TRUE),
                         _ => panic!("TODO")
@@ -188,53 +188,53 @@ impl Scanner {
                     panic!("TODO")
                 };
             },
-            Some('v') => self.check_keyword(1, 2, "ar", TokenType::IF),
-            Some('w') => self.check_keyword(1, 4, "hile", TokenType::IF),
-            _ => panic!("Unknown  identifier")
-        };
-
-        TokenType::IDENTIFIER
+            Some('v') => self.check_keyword(1, 2, "ar", TokenType::VAR),
+            Some('w') => self.check_keyword(1, 4, "hile", TokenType::WHILE),
+            _ => TokenType::IDENTIFIER
+        }
     }
 
     fn check_keyword(&self, start: u8, length: u8, rest: &str, token_type: TokenType) -> TokenType {
-        let found = &self.code.as_bytes()[start as usize..((start + length) as usize)];
-        if found == rest.as_bytes() {
+        let found = &self.code[start as usize..((start + length) as usize)];
+        let rest: Vec<char> = rest.chars().collect();
+        if found == &rest[..] {
             token_type
         } else {
             TokenType::IDENTIFIER
         }
     }
 
-    fn current_char(&self, index: usize) -> Option<String> {
-       self.code.as_bytes().get(index).map(|index| index.to_string())
+    fn current_char(&self, index: usize) -> Option<char> {
+       self.code.get(index).copied()
     }
 
     fn peek(&self) -> Option<char> {
-        self.code.as_bytes().get(self.current_index).map(|index| *index as char)
+        self.code.get(self.current_index).copied()
     }
 
     fn peek_next(&self) -> Option<char> {
         if self.is_at_end() {
             return Some('\0');
         } else {
-            self.code.as_bytes().get(self.current_index + 1).map(|index| *index as char)
+            self.code.get(self.current_index + 1).copied()
         }
     }
 
     fn advance(&mut self) -> char {
         self.current_index += 1;
-        self.code.remove(self.current_index - 1)
+        self.code.get(self.current_index - 1).copied().expect("ERROR advancing")
     }
 
     fn is_at_end(&self) -> bool {
-        self.current_index > self.code.len() + 1
+        self.current_index >= self.code.len()
     }
 
     fn make_token(&self, token_type: TokenType) -> Token {
         let value = &self.code[self.start_index..self.current_index];
+        let value: String = value.iter().collect();
         Token {
             token_type,
-            token: Rc::new(value.to_string()),
+            token: Rc::new(value),
             line: self.line,
         }
     }
@@ -256,22 +256,22 @@ impl Scanner {
     }
 
     fn number(&mut self) -> Token {
-        while Scanner::is_digit(self.peek().expect("TODO")) {
+        while !self.is_at_end() && Scanner::is_digit(self.peek().expect("peek in number()")) {
             self.advance();
         }
 
-        if self.peek() == Some('.') && Scanner::is_digit(self.peek_next().expect("TODO")) {
+        if self.peek() == Some('.') && Scanner::is_digit(self.peek_next().expect("peek error is_digit")) {
             self.advance();
-            while Scanner::is_digit(self.peek().expect("TODO")) {
+            while Scanner::is_digit(self.peek().expect("peek error is_digit")) {
                 self.advance();
             }
         }
 
-        self.make_token(TokenType::NUMBER)
+        self.make_token(NUMBER)
     }
 
     fn identifier(&mut self) -> Token {
-        while Scanner::is_alpha(self.peek().expect("TODO")) || Scanner::is_digit(self.peek().expect("TODO")) {
+        while !self.is_at_end() && (Scanner::is_alpha(self.peek().expect("peek error is_alpha")) || Scanner::is_digit(self.peek().expect("TODO"))) {
             self.advance();
         }
         let token_type = self.identifier_type();
