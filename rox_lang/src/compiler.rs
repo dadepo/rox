@@ -6,12 +6,12 @@ pub fn compile(source: &str) -> () {
     loop {
          let token: Token = scanner.scan_token();
          if token.line != line {
-             println!("{}", token.line);
+             print!("{:4} ", token.line);
              line = token.line;
          } else {
-             println!("  {} ", "|")
+             print!("   | ");
          }
-        println!("{:?} {:?}", token.token_type, token.token);
+        println!("{:2} '{}'", token.token_type, token.token);
 
         if token.token_type == TokenType::EOF {
             break;

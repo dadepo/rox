@@ -1,7 +1,11 @@
+use std::fmt::Display;
 use std::rc::Rc;
+use strum_macros::Display;
+
 use crate::scanner::TokenType::{BANG, BANG_EQUAL, COMMA, DOT, EQUAL, EQUAL_EQUAL, GREATER, GREATER_EQUAL, LEFT_BRACE, LEFT_PAREN, LESS, LESS_EQUAL, MINUS, NUMBER, PLUS, RIGHT_BRACE, RIGHT_PAREN, SEMICOLON, SLASH, STAR};
 
 #[derive(Debug, PartialEq, Eq)]
+#[derive(Display)]
 pub enum TokenType {
     // Single-character tokens.
     LEFT_PAREN, RIGHT_PAREN,
